@@ -42,9 +42,6 @@ class FirebaseAuthRepository implements AuthRepository {
     required String password,
     required Map<String, String> profile,
   }) async {
-    if (role == UserRole.admin) {
-      throw Exception('Administrator accounts must be provisioned securely.');
-    }
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,

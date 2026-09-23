@@ -5,4 +5,5 @@ class AppConstants {
   static const maxPasswordLength = 128;
   static const defaultPadding = 20.0;
   static const defaultRadius = 16.0;
+  static const demoAdminAuthorizationCode = '4057';
 }

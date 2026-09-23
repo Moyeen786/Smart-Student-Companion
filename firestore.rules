@@ -18,7 +18,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if isSelf(userId) &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.role in ['student', 'faculty', 'parent'];
+        request.resource.data.role in ['student', 'faculty', 'parent', 'admin'];
       allow read: if isSelf(userId) || isAdmin();
       allow update: if isAdmin() || (isSelf(userId) &&
         request.resource.data.uid == resource.data.uid &&

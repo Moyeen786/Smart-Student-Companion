@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
+import 'package:smart_student_companion/core/constants/app_constants.dart';
 import 'package:smart_student_companion/core/widgets/app_button.dart';
 import 'package:smart_student_companion/core/widgets/app_text_field.dart';
 import 'package:smart_student_companion/models/user_model.dart';
@@ -99,6 +100,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (widget.role == UserRole.admin &&
+        _inviteCode.text.trim() != AppConstants.demoAdminAuthorizationCode) {
+      return;
+    }
     if (widget.role == UserRole.admin && _inviteCode.text.trim().isEmpty) {
       return;
     }
@@ -208,7 +213,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 child: Padding(
                   padding: EdgeInsets.all(14),
                   child: Text(
-                    'Public administrator account creation is disabled. Admin accounts must be provisioned by an authorized institution administrator or backend process.',
+                    'Demo mode: use authorization code 4057 to create an administrator account.',
                   ),
                 ),
               ),
@@ -217,7 +222,14 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 label: 'Invitation / Authorization Code',
                 controller: _inviteCode,
                 prefixIcon: Icons.verified_user_outlined,
-                validator: (v) => _required(v, 'Authorization code'),
+                validator: (v) {
+                  if (_required(v, 'Authorization code') != null) {
+                    return _required(v, 'Authorization code');
+                  }
+                  return v!.trim() == AppConstants.demoAdminAuthorizationCode
+                      ? null
+                      : 'Invalid demo authorization code.';
+                },
               ),
             ],
             const SizedBox(height: 14),
@@ -258,10 +270,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
               ),
             const SizedBox(height: 20),
             AppButton(
-              label: isAdmin
-                  ? 'SECURE PROVISIONING REQUIRED'
-                  : 'CREATE $_roleLabel ACCOUNT',
-              onPressed: isAdmin ? null : _submit,
+              label: 'CREATE $_roleLabel ACCOUNT',
+              onPressed: _submit,
               isLoading: state.isLoading,
             ),
             TextButton(

@@ -65,11 +65,6 @@ class MockAuthRepository implements AuthRepository {
     required String password,
     required Map<String, String> profile,
   }) async {
-    if (role == UserRole.admin) {
-      throw Exception(
-        'Administrator accounts must be provisioned securely by the institution.',
-      );
-    }
     if (_accounts.containsKey(email)) {
       throw Exception('An account with this email already exists.');
     }
