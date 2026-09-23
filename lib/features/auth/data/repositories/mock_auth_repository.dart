@@ -81,6 +81,7 @@ class MockAuthRepository implements AuthRepository {
       department: profile['department'] ?? 'General Administration',
       semester: int.tryParse(profile['semester'] ?? '') ?? 0,
       createdAt: DateTime.now(),
+      rollNumber: profile['rollNumber'] ?? profile['accountId'] ?? '',
     );
     _accounts[email] = (user: user, password: password);
     return user;

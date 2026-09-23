@@ -34,7 +34,11 @@ class ParentDashboard extends ConsumerWidget {
             '/parent/attendance',
             '/parent/performance',
           ];
-          if (index < routes.length) context.go(routes[index]);
+          if (index < routes.length) {
+            index == 0
+                ? context.go(routes[index])
+                : context.push(routes[index]);
+          }
         },
         destinations: const [
           NavigationDestination(

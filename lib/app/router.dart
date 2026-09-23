@@ -28,12 +28,11 @@ import 'package:smart_student_companion/features/teacher/presentation/teacher_le
 import 'package:smart_student_companion/models/user_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: false,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
       final location = state.uri.path;
       final isAuthenticated = authState.valueOrNull?.isAuthenticated ?? false;
       final user = authState.valueOrNull?.user;
@@ -189,6 +188,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     errorBuilder: (context, state) =>
         const Scaffold(body: Center(child: Text('Page not found'))),
   );
+
+  ref.listen(authStateProvider, (_, _) => router.refresh());
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 class AppRouter {

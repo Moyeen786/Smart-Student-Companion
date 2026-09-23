@@ -12,6 +12,7 @@ class StudentDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).valueOrNull?.user;
     const routes = <String>[
       '/student',
       '/student/attendance',
@@ -35,7 +36,9 @@ class StudentDashboard extends ConsumerWidget {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
-        onDestinationSelected: (index) => context.go(routes[index]),
+        onDestinationSelected: (index) => index == 0
+            ? context.go(routes[index])
+            : context.push(routes[index]),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -76,15 +79,15 @@ class StudentDashboard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Good morning, Riya',
+                        'Good morning, ${user?.name ?? 'Student'}',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      const Text(
-                        'Student ID: SSC-2026-0412',
+                      Text(
+                        'Roll Number: ${user?.rollNumber ?? ''}',
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
-                      const Text(
-                        'Computer Science and Engineering - Semester 5',
+                      Text(
+                        '${user?.department ?? ''} - Semester ${user?.semester ?? 0}',
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ],
@@ -131,7 +134,7 @@ class StudentDashboard extends ConsumerWidget {
             SectionHeader(
               title: "Today's timetable",
               action: TextButton(
-                onPressed: () => context.go('/student/timetable'),
+                onPressed: () => context.push('/student/timetable'),
                 child: const Text('View all'),
               ),
             ),
@@ -172,7 +175,7 @@ class StudentDashboard extends ConsumerWidget {
             SectionHeader(
               title: 'Attendance overview',
               action: TextButton(
-                onPressed: () => context.go('/student/attendance'),
+                onPressed: () => context.push('/student/attendance'),
                 child: const Text('Details'),
               ),
             ),
@@ -207,7 +210,7 @@ class StudentDashboard extends ConsumerWidget {
             SectionHeader(
               title: 'Upcoming assignments',
               action: TextButton(
-                onPressed: () => context.go('/student/assignments'),
+                onPressed: () => context.push('/student/assignments'),
                 child: const Text('View all'),
               ),
             ),
@@ -278,22 +281,22 @@ class StudentDashboard extends ConsumerWidget {
                 _QuickAction(
                   label: 'Attendance',
                   icon: Icons.fact_check_outlined,
-                  onTap: () => context.go('/student/attendance'),
+                  onTap: () => context.push('/student/attendance'),
                 ),
                 _QuickAction(
                   label: 'Timetable',
                   icon: Icons.calendar_month_outlined,
-                  onTap: () => context.go('/student/timetable'),
+                  onTap: () => context.push('/student/timetable'),
                 ),
                 _QuickAction(
                   label: 'Assignments',
                   icon: Icons.assignment_outlined,
-                  onTap: () => context.go('/student/assignments'),
+                  onTap: () => context.push('/student/assignments'),
                 ),
                 _QuickAction(
                   label: 'Notes',
                   icon: Icons.note_alt_outlined,
-                  onTap: () => context.go('/student/notes'),
+                  onTap: () => context.push('/student/notes'),
                 ),
               ],
             ),

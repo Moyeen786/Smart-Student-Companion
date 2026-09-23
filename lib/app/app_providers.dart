@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_student_companion/features/auth/data/repositories/auth_repository.dart';
-import 'package:smart_student_companion/features/auth/data/repositories/mock_auth_repository.dart';
+import 'package:smart_student_companion/features/auth/data/repositories/firebase_auth_repository.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 class AuthState {
@@ -15,7 +15,7 @@ class AuthState {
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return MockAuthRepository();
+  return FirebaseAuthRepository();
 });
 
 final authStateProvider =
@@ -26,11 +26,12 @@ final authStateProvider =
 
 class AuthController extends StateNotifier<AsyncValue<AuthState>> {
   AuthController(this._repository) : super(const AsyncLoading()) {
-    _init();
+    _initialization = _init();
     _authSubscription = _repository.authStateChanges.listen(_onAuthChanged);
   }
 
   final AuthRepository _repository;
+  late final Future<void> _initialization;
   late final StreamSubscription<UserModel?> _authSubscription;
 
   void _onAuthChanged(UserModel? user) {
@@ -47,6 +48,7 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
   }
 
   Future<void> login(String email, String password) async {
+    await _initialization;
     state = const AsyncLoading();
     try {
       final user = await _repository.login(email, password);

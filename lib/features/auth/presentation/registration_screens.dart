@@ -113,7 +113,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             'department': _department.text.trim(),
             'semester': _semester.text.trim(),
             'designation': _designation.text.trim(),
-            'accountId': _id.text.trim(),
+            'rollNumber': _id.text.trim(),
             'invitationCode': _inviteCode.text.trim(),
           },
         );
@@ -166,11 +166,14 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
               label: isAdmin
                   ? 'Administrator ID'
                   : widget.role == UserRole.student
-                  ? 'Student ID'
+                  ? 'Roll Number'
                   : 'Faculty ID',
               controller: _id,
               prefixIcon: Icons.badge_outlined,
-              validator: (v) => _required(v, 'ID'),
+              validator: (v) => _required(
+                v,
+                widget.role == UserRole.student ? 'Roll number' : 'ID',
+              ),
             ),
             const SizedBox(height: 14),
             AppTextField(

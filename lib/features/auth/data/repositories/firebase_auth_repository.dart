@@ -59,6 +59,7 @@ class FirebaseAuthRepository implements AuthRepository {
       department: profile['department'] ?? '',
       semester: int.tryParse(profile['semester'] ?? '') ?? 0,
       createdAt: DateTime.now(),
+      rollNumber: profile['rollNumber'] ?? profile['accountId'] ?? '',
     );
     await _firestore.collection('users').doc(user.uid).set(user.toMap());
     return user;

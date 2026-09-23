@@ -1,0 +1,25 @@
+{
+	"flutter": {
+		"platforms": {
+			"android": {
+				"default": {
+					"projectId": "smart-student-companion-e0152",
+					"appId": "1:997952901827:android:046a275ded169fe2aac876",
+					"fileOutput": "android/app/google-services.json"
+				}
+			},
+			"dart": {
+				"lib/firebase_options.dart": {
+					"projectId": "smart-student-companion-e0152",
+					"configurations": {
+						"android": "1:997952901827:android:046a275ded169fe2aac876",
+						"web": "1:997952901827:web:769ccbf0e48fddcaaac876"
+					}
+				}
+			}
+		}
+	},
+	"firestore": {
+		"rules": "firestore.rules"
+	}
+}

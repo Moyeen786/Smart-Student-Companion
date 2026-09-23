@@ -34,7 +34,11 @@ class AdminDashboard extends ConsumerWidget {
             '/admin/analytics',
             '/admin/utilities',
           ];
-          if (index < routes.length) context.go(routes[index]);
+          if (index < routes.length) {
+            index == 0
+                ? context.go(routes[index])
+                : context.push(routes[index]);
+          }
         },
         destinations: const [
           NavigationDestination(
@@ -105,22 +109,22 @@ class AdminDashboard extends ConsumerWidget {
                 ActionChip(
                   avatar: const Icon(Icons.people_outline, size: 18),
                   label: const Text('Manage Users'),
-                  onPressed: () => context.go('/admin/users'),
+                  onPressed: () => context.push('/admin/users'),
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.campaign_outlined, size: 18),
                   label: const Text('Announcements'),
-                  onPressed: () => context.go('/admin/announcements'),
+                  onPressed: () => context.push('/admin/announcements'),
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.analytics_outlined, size: 18),
                   label: const Text('Analytics'),
-                  onPressed: () => context.go('/admin/analytics'),
+                  onPressed: () => context.push('/admin/analytics'),
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.build_outlined, size: 18),
                   label: const Text('Campus Utilities'),
-                  onPressed: () => context.go('/admin/utilities'),
+                  onPressed: () => context.push('/admin/utilities'),
                 ),
               ],
             ),

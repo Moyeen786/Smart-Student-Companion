@@ -40,6 +40,7 @@ class UserModel {
     required this.department,
     required this.semester,
     required this.createdAt,
+    this.rollNumber = '',
   });
 
   final String uid;
@@ -49,6 +50,7 @@ class UserModel {
   final String department;
   final int semester;
   final DateTime createdAt;
+  final String rollNumber;
 
   UserModel copyWith({
     String? uid,
@@ -58,6 +60,7 @@ class UserModel {
     String? department,
     int? semester,
     DateTime? createdAt,
+    String? rollNumber,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -67,6 +70,7 @@ class UserModel {
       department: department ?? this.department,
       semester: semester ?? this.semester,
       createdAt: createdAt ?? this.createdAt,
+      rollNumber: rollNumber ?? this.rollNumber,
     );
   }
 
@@ -81,6 +85,8 @@ class UserModel {
       createdAt: map['createdAt'] is DateTime
           ? map['createdAt'] as DateTime
           : DateTime.now(),
+      rollNumber:
+          map['rollNumber'] as String? ?? map['accountId'] as String? ?? '',
     );
   }
 
@@ -93,6 +99,7 @@ class UserModel {
       'department': department,
       'semester': semester,
       'createdAt': createdAt,
+      'rollNumber': rollNumber,
     };
   }
 }

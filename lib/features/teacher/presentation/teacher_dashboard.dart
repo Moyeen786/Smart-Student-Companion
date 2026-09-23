@@ -35,7 +35,11 @@ class TeacherDashboard extends ConsumerWidget {
             '/faculty/assignments',
             '/faculty/leave-requests',
           ];
-          if (index < routes.length) context.go(routes[index]);
+          if (index < routes.length) {
+            index == 0
+                ? context.go(routes[index])
+                : context.push(routes[index]);
+          }
         },
         destinations: const [
           NavigationDestination(
