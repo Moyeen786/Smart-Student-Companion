@@ -148,6 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: Icons.email_outlined,
+                  onSubmitted: (_) => _submit(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your university email.';
@@ -164,6 +165,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   prefixIcon: Icons.lock_outline,
+                  onSubmitted: (_) => _submit(),
                   suffix: IconButton(
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),

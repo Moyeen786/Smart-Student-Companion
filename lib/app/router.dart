@@ -8,6 +8,7 @@ import 'package:smart_student_companion/features/admin/presentation/admin_dashbo
 import 'package:smart_student_companion/features/admin/presentation/admin_profile.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_secondary.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_utilities.dart';
+import 'package:smart_student_companion/features/admin/presentation/create_announcement_screen.dart';
 import 'package:smart_student_companion/features/admin/presentation/user_management.dart';
 import 'package:smart_student_companion/features/auth/presentation/login_screen.dart';
 import 'package:smart_student_companion/features/auth/presentation/account_created_screen.dart';
@@ -188,11 +189,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/announcements/create',
-        builder: (context, state) => const AdminSecondaryScreen(
-          title: 'Create announcement',
-          subtitle: 'Draft, schedule and publish an institutional circular.',
-          icon: Icons.campaign_outlined,
-        ),
+        builder: (context, state) => const CreateAnnouncementScreen(),
       ),
       GoRoute(
         path: '/admin/analytics',

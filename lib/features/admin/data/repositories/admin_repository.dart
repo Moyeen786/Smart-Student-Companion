@@ -35,13 +35,7 @@ class FirestoreAdminRepository implements AdminRepository {
         .get();
     return snapshot.docs.map((doc) {
       final data = doc.data();
-      return Announcement(
-        title: data['title'] as String? ?? '',
-        category: data['category'] as String? ?? '',
-        audience: data['audience'] as String? ?? '',
-        date: _dateLabel(data['publishedAt'] ?? data['createdAt']),
-        status: _status(data['status'] as String?),
-      );
+      return Announcement.fromMap({...data, 'id': doc.id});
     }).toList();
   }
 

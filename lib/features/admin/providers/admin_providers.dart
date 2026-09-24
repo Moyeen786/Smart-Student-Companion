@@ -1,9 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_student_companion/features/admin/data/repositories/admin_repository.dart';
 import 'package:smart_student_companion/features/admin/domain/models/admin_models.dart';
+import 'package:smart_student_companion/features/admin/domain/repositories/announcement_repository.dart';
 
 final adminRepositoryProvider = Provider<AdminRepository>(
   (ref) => FirestoreAdminRepository(),
+);
+
+final announcementRepositoryProvider = Provider<AnnouncementRepository>(
+  (ref) => FirestoreAnnouncementRepository(),
 );
 
 final adminUsersProvider = FutureProvider<List<AdminUser>>(

@@ -64,8 +64,8 @@ class AdminSecondaryScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'This Admin workspace is ready for repository-backed records and Firebase integration.',
+              Text(
+                'Review and manage institutional ${title.toLowerCase()} records from this section.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textSecondary),
               ),
@@ -73,7 +73,7 @@ class AdminSecondaryScreen extends StatelessWidget {
               FilledButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.add),
-                label: Text('Create ${title.toLowerCase()} record'),
+                label: Text('Add ${title.toLowerCase()}'),
               ),
             ],
           ),

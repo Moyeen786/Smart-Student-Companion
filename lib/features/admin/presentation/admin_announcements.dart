@@ -107,7 +107,7 @@ class AdminAnnouncements extends ConsumerWidget {
                           ),
                           const SizedBox(height: 7),
                           Text(
-                            '${a.category}  |  ${a.audience}',
+                            '${a.categoryLabel}  |  ${a.audienceLabel}',
                             style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12,
@@ -115,7 +115,7 @@ class AdminAnnouncements extends ConsumerWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            a.date,
+                            a.date.isNotEmpty ? a.date : 'Pending',
                             style: const TextStyle(
                               color: AppColors.muted,
                               fontSize: 11,
@@ -124,7 +124,7 @@ class AdminAnnouncements extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    StatusBadge(status: a.status),
+                    StatusBadge(status: a.recordStatus),
                     PopupMenuButton<String>(
                       onSelected: (_) {},
                       itemBuilder: (_) => const [

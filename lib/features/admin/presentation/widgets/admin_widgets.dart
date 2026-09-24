@@ -41,7 +41,7 @@ class AdminSidebar extends ConsumerWidget {
   const AdminSidebar({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final path = GoRouterState.of(context).uri.path;
+    final path = _currentPath(context);
     return Material(
       color: AppColors.primaryVariant,
       child: SafeArea(
@@ -176,6 +176,14 @@ class AdminSidebar extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _currentPath(BuildContext context) {
+    try {
+      return GoRouterState.of(context).uri.path;
+    } on GoError {
+      return '';
+    }
   }
 
   Widget _item(
