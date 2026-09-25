@@ -8,6 +8,8 @@ import 'package:smart_student_companion/features/admin/presentation/admin_dashbo
 import 'package:smart_student_companion/features/admin/presentation/admin_profile.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_secondary.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_utilities.dart';
+import 'package:smart_student_companion/features/admin/presentation/announcement_details_screen.dart';
+import 'package:smart_student_companion/features/admin/domain/models/admin_models.dart';
 import 'package:smart_student_companion/features/admin/presentation/create_announcement_screen.dart';
 import 'package:smart_student_companion/features/admin/presentation/user_management.dart';
 import 'package:smart_student_companion/features/auth/presentation/login_screen.dart';
@@ -190,6 +192,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/announcements/create',
         builder: (context, state) => const CreateAnnouncementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/announcements/:id',
+        builder: (context, state) =>
+            AnnouncementDetailsScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/admin/announcements/:id/edit',
+        builder: (context, state) => CreateAnnouncementScreen(
+          initialAnnouncement: state.extra as Announcement?,
+          announcementId: state.pathParameters['id'],
+        ),
       ),
       GoRoute(
         path: '/admin/analytics',

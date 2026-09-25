@@ -10,7 +10,14 @@ import 'package:smart_student_companion/features/admin/providers/admin_providers
 import 'package:smart_student_companion/models/user_model.dart';
 
 class CreateAnnouncementScreen extends ConsumerStatefulWidget {
-  const CreateAnnouncementScreen({super.key});
+  const CreateAnnouncementScreen({
+    super.key,
+    this.initialAnnouncement,
+    this.announcementId,
+  });
+
+  final Announcement? initialAnnouncement;
+  final String? announcementId;
 
   @override
   ConsumerState<CreateAnnouncementScreen> createState() =>
@@ -30,6 +37,33 @@ class _CreateAnnouncementScreenState
   void initState() {
     super.initState();
     _messageController.addListener(() => setState(() {}));
+    final announcement = widget.initialAnnouncement;
+    if (announcement != null) {
+      _populate(announcement);
+    } else if (widget.announcementId != null) {
+      _loadAnnouncement(widget.announcementId!);
+    }
+  }
+
+  Future<void> _loadAnnouncement(String id) async {
+    final announcement = await ref
+        .read(announcementRepositoryProvider)
+        .getAnnouncementById(id);
+    if (mounted && announcement != null) {
+      setState(() => _populate(announcement));
+    }
+  }
+
+  void _populate(Announcement announcement) {
+    _titleController.text = announcement.title;
+    _messageController.text = announcement.message;
+    _category = announcement.category;
+    _audience = announcement.audience;
+    _publishNow = announcement.status != AnnouncementStatus.scheduled;
+    _scheduledDate = announcement.scheduledAt;
+    _scheduledTime = announcement.scheduledAt == null
+        ? null
+        : TimeOfDay.fromDateTime(announcement.scheduledAt!);
   }
 
   bool _publishNow = true;
@@ -792,17 +826,6 @@ class _CreateAnnouncementScreenState
 
   Future<void> _handleSaveDraft() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (!_publishNow && (_scheduledDate == null || _scheduledTime == null)) {
-      setState(() {});
-      if (_scheduledDate == null) {
-        _showInlineMessage('Publication date is required.');
-      }
-      if (_scheduledTime == null) {
-        _showInlineMessage('Publication time is required.');
-      }
-      return;
-    }
-
     await _submitAnnouncement(saveDraft: true);
   }
 
@@ -841,6 +864,7 @@ class _CreateAnnouncementScreenState
           : null;
 
       final announcement = Announcement(
+        id: widget.initialAnnouncement?.id ?? '',
         title: _titleController.text.trim(),
         message: _messageController.text.trim(),
         category: _category ?? AnnouncementCategory.general,
@@ -852,18 +876,28 @@ class _CreateAnnouncementScreenState
                   : AnnouncementStatus.scheduled),
         createdBy:
             ref.read(authStateProvider).valueOrNull?.user?.uid ?? 'admin-user',
-        createdAt: DateTime.now(),
-        publishedAt: _publishNow ? DateTime.now() : null,
-        scheduledAt: scheduledWhen,
+        createdAt: widget.initialAnnouncement?.createdAt ?? DateTime.now(),
+        publishedAt: _publishNow && !saveDraft
+            ? (widget.initialAnnouncement?.publishedAt ?? DateTime.now())
+            : null,
+        scheduledAt: saveDraft ? null : scheduledWhen,
         attachmentUrl: null,
         attachmentName: _attachment?.name,
       );
 
-      await repository.saveAnnouncement(announcement, publish: !saveDraft);
-      setState(() {
-        _isSubmitting = false;
-        _success = true;
-      });
+      await repository.saveAnnouncement(announcement);
+      ref.invalidate(adminAnnouncementsProvider);
+      if (!mounted) return;
+      final message = saveDraft
+          ? 'Announcement saved as draft.'
+          : (!_publishNow
+                ? 'Announcement scheduled successfully.'
+                : widget.initialAnnouncement == null
+                ? 'Announcement published successfully.'
+                : 'Announcement updated successfully.');
+      context.go('/admin/announcements');
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       setState(() => _isSubmitting = false);
       if (mounted) {

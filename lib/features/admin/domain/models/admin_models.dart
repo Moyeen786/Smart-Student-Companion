@@ -148,10 +148,12 @@ class Announcement {
     DateTime? createdAt,
     this.publishedAt,
     this.scheduledAt,
+    DateTime? updatedAt,
     this.attachmentUrl,
     this.attachmentName,
     this.date = '',
-  }) : createdAt = createdAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   final String id;
   final String title;
@@ -161,6 +163,7 @@ class Announcement {
   final AnnouncementStatus status;
   final String createdBy;
   final DateTime createdAt;
+  final DateTime updatedAt;
   final DateTime? publishedAt;
   final DateTime? scheduledAt;
   final String? attachmentUrl;
@@ -183,6 +186,7 @@ class Announcement {
     DateTime? createdAt,
     DateTime? publishedAt,
     DateTime? scheduledAt,
+    DateTime? updatedAt,
     String? attachmentUrl,
     String? attachmentName,
     String? date,
@@ -197,6 +201,7 @@ class Announcement {
     createdAt: createdAt ?? this.createdAt,
     publishedAt: publishedAt ?? this.publishedAt,
     scheduledAt: scheduledAt ?? this.scheduledAt,
+    updatedAt: updatedAt ?? this.updatedAt,
     attachmentUrl: attachmentUrl ?? this.attachmentUrl,
     attachmentName: attachmentName ?? this.attachmentName,
     date: date ?? this.date,
@@ -213,6 +218,7 @@ class Announcement {
     createdAt: _asDateTime(map['createdAt']) ?? DateTime.now(),
     publishedAt: _asDateTime(map['publishedAt']),
     scheduledAt: _asDateTime(map['scheduledAt']),
+    updatedAt: _asDateTime(map['updatedAt']),
     attachmentUrl: map['attachmentUrl'] as String?,
     attachmentName: map['attachmentName'] as String?,
     date: map['date'] as String? ?? '',
@@ -229,6 +235,7 @@ class Announcement {
     'createdAt': createdAt,
     'publishedAt': publishedAt,
     'scheduledAt': scheduledAt,
+    'updatedAt': updatedAt,
     'attachmentUrl': attachmentUrl,
     'attachmentName': attachmentName,
     'date': date,
