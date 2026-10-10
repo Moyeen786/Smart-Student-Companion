@@ -5,7 +5,12 @@ import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_analytics.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_announcements.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_dashboard.dart';
+import 'package:smart_student_companion/features/admin/presentation/admin_profile.dart';
+import 'package:smart_student_companion/features/admin/presentation/admin_secondary.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_utilities.dart';
+import 'package:smart_student_companion/features/admin/presentation/announcement_details_screen.dart';
+import 'package:smart_student_companion/features/admin/domain/models/admin_models.dart';
+import 'package:smart_student_companion/features/admin/presentation/create_announcement_screen.dart';
 import 'package:smart_student_companion/features/admin/presentation/user_management.dart';
 import 'package:smart_student_companion/features/auth/presentation/login_screen.dart';
 import 'package:smart_student_companion/features/auth/presentation/account_created_screen.dart';
@@ -208,8 +213,32 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UserManagement(),
       ),
       GoRoute(
+        path: '/admin/users/:id',
+        builder: (context, state) => const AdminSecondaryScreen(
+          title: 'User details',
+          subtitle: 'Review account and academic information.',
+          icon: Icons.person_outline,
+        ),
+      ),
+      GoRoute(
         path: '/admin/announcements',
         builder: (context, state) => const AdminAnnouncements(),
+      ),
+      GoRoute(
+        path: '/admin/announcements/create',
+        builder: (context, state) => const CreateAnnouncementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/announcements/:id',
+        builder: (context, state) =>
+            AnnouncementDetailsScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/admin/announcements/:id/edit',
+        builder: (context, state) => CreateAnnouncementScreen(
+          initialAnnouncement: state.extra as Announcement?,
+          announcementId: state.pathParameters['id'],
+        ),
       ),
       GoRoute(
         path: '/admin/analytics',
@@ -218,6 +247,42 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/utilities',
         builder: (context, state) => const AdminUtilities(),
+      ),
+      GoRoute(
+        path: '/admin/utilities/library',
+        builder: (context, state) => const AdminSecondaryScreen(
+          title: 'Library',
+          subtitle: 'Books, circulation and library notices.',
+          icon: Icons.menu_book_outlined,
+        ),
+      ),
+      GoRoute(
+        path: '/admin/utilities/placements',
+        builder: (context, state) => const AdminSecondaryScreen(
+          title: 'Placements',
+          subtitle: 'Companies, drives and student outcomes.',
+          icon: Icons.work_outline_rounded,
+        ),
+      ),
+      GoRoute(
+        path: '/admin/utilities/events',
+        builder: (context, state) => const AdminSecondaryScreen(
+          title: 'Events',
+          subtitle: 'Publish and manage campus events.',
+          icon: Icons.event_outlined,
+        ),
+      ),
+      GoRoute(
+        path: '/admin/utilities/lost-found',
+        builder: (context, state) => const AdminSecondaryScreen(
+          title: 'Lost & Found',
+          subtitle: 'Review and resolve reported items.',
+          icon: Icons.inventory_2_outlined,
+        ),
+      ),
+      GoRoute(
+        path: '/admin/profile',
+        builder: (context, state) => const AdminProfile(),
       ),
     ],
     errorBuilder: (context, state) =>
@@ -231,6 +296,18 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 class AppRouter {
   static bool canAccessRoute(UserRole role, String route) {
+    if (route.startsWith('/admin')) {
+      return role == UserRole.admin;
+    }
+    if (route.startsWith('/student')) {
+      return role == UserRole.student;
+    }
+    if (route.startsWith('/faculty')) {
+      return role == UserRole.faculty;
+    }
+    if (route.startsWith('/parent')) {
+      return role == UserRole.parent;
+    }
     switch (route) {
       case '/student':
       case '/student/profile':
@@ -249,12 +326,6 @@ class AppRouter {
       case '/parent/performance':
       case '/parent/profile':
         return role == UserRole.parent;
-      case '/admin':
-      case '/admin/users':
-      case '/admin/announcements':
-      case '/admin/analytics':
-      case '/admin/utilities':
-        return role == UserRole.admin;
       default:
         return true;
     }
