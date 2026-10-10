@@ -156,12 +156,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   hintText: 'Enter university email or username',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-<<<<<<< HEAD
                   prefixIcon: Icons.person_outline,
-=======
-                  prefixIcon: Icons.email_outlined,
                   onSubmitted: (_) => _submit(),
->>>>>>> 5125038e8e0da1c8cf022d7aa913103fbdee7df2
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email or username.';

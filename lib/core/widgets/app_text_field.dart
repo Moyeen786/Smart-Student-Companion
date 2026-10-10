@@ -12,11 +12,8 @@ class AppTextField extends StatelessWidget {
     this.prefixIcon,
     this.suffix,
     this.validator,
-<<<<<<< HEAD
     this.onChanged,
-=======
     this.onSubmitted,
->>>>>>> 5125038e8e0da1c8cf022d7aa913103fbdee7df2
   });
 
   final String label;
@@ -27,11 +24,8 @@ class AppTextField extends StatelessWidget {
   final IconData? prefixIcon;
   final Widget? suffix;
   final String? Function(String?)? validator;
-<<<<<<< HEAD
   final ValueChanged<String>? onChanged;
-=======
   final ValueChanged<String>? onSubmitted;
->>>>>>> 5125038e8e0da1c8cf022d7aa913103fbdee7df2
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +34,9 @@ class AppTextField extends StatelessWidget {
       keyboardType: keyboardType,
       obscureText: obscureText,
       validator: validator,
-<<<<<<< HEAD
       onChanged: onChanged,
-=======
-      textInputAction: TextInputAction.done,
+      textInputAction: onSubmitted != null ? TextInputAction.done : null,
       onFieldSubmitted: onSubmitted,
->>>>>>> 5125038e8e0da1c8cf022d7aa913103fbdee7df2
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
