@@ -6,6 +6,7 @@ import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/constants/app_constants.dart';
 import 'package:smart_student_companion/core/widgets/app_button.dart';
 import 'package:smart_student_companion/core/widgets/app_text_field.dart';
+import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
@@ -19,18 +20,28 @@ class RoleSelectionScreen extends StatelessWidget {
         Icons.school_outlined,
         'Student',
         'Access academics, attendance, timetable and campus services.',
+        '/register/student',
       ),
       (
         UserRole.faculty,
         Icons.person_outline,
         'Faculty',
         'Manage classes, attendance, assignments and academic activities.',
+        '/register/faculty',
       ),
       (
         UserRole.admin,
         Icons.admin_panel_settings_outlined,
         'Administrator',
         'Manage users, announcements and institutional information.',
+        '/register/admin',
+      ),
+      (
+        UserRole.parent,
+        Icons.family_restroom_outlined,
+        'Parent',
+        'Monitor your child\'s academics, attendance and progress.',
+        '/register/parent',
       ),
     ];
     return _PortalPage(
@@ -45,7 +56,7 @@ class RoleSelectionScreen extends StatelessWidget {
                   icon: role.$2,
                   title: role.$3,
                   description: role.$4,
-                  onTap: () => context.go('/register/${role.$1.name}'),
+                  onTap: () => context.go(role.$5),
                 ),
               ),
             )
@@ -420,4 +431,160 @@ class _RoleCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+class ParentRegistrationScreen extends ConsumerStatefulWidget {
+  const ParentRegistrationScreen({super.key});
+
+  @override
+  ConsumerState<ParentRegistrationScreen> createState() =>
+      _ParentRegistrationScreenState();
+}
+
+class _ParentRegistrationScreenState
+    extends ConsumerState<ParentRegistrationScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _studentName = TextEditingController();
+  final _rollNumber = TextEditingController();
+  final _department = TextEditingController();
+  final _parentPhone = TextEditingController();
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _studentName.dispose();
+    _rollNumber.dispose();
+    _department.dispose();
+    _parentPhone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final name = _studentName.text.trim();
+      final roll = _rollNumber.text.trim();
+      final dept = _department.text.trim();
+      final phone = _parentPhone.text.trim();
+
+      await ref.read(parentAuthServiceProvider).registerParentDetails(
+            studentName: name,
+            rollNumber: roll,
+            department: dept,
+            parentPhone: phone,
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Parent details registered successfully! Please log in to continue.',
+                ),
+              ),
+            ],
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
+      context.go('/login');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String? _required(String? value, String label) =>
+      value == null || value.trim().isEmpty ? '$label is required.' : null;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PortalPage(
+      title: 'Parent Registration',
+      subtitle:
+          "Associate your mobile number with your child's student account.",
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            AppTextField(
+              label: 'Student Full Name',
+              controller: _studentName,
+              prefixIcon: Icons.person_outline,
+              validator: (v) => _required(v, 'Student full name'),
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              label: 'Student Roll Number',
+              controller: _rollNumber,
+              prefixIcon: Icons.badge_outlined,
+              validator: (v) => _required(v, 'Student roll number'),
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              label: 'Department',
+              controller: _department,
+              prefixIcon: Icons.account_balance_outlined,
+              validator: (v) => _required(v, 'Department'),
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              label: 'Parent Registered Mobile Number',
+              controller: _parentPhone,
+              keyboardType: TextInputType.phone,
+              hintText: '+91 98765 43210',
+              prefixIcon: Icons.phone_outlined,
+              validator: (v) {
+                if (_required(v, 'Parent registered mobile number') != null) {
+                  return _required(v, 'Parent registered mobile number');
+                }
+                if (ParentAuthService.extractDigits(v!).length < 8) {
+                  return 'Enter a valid mobile number with at least 8 digits.';
+                }
+                return null;
+              },
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(color: AppColors.danger),
+              ),
+            ],
+            const SizedBox(height: 20),
+            AppButton(
+              label: 'REGISTER',
+              isLoading: _isLoading,
+              onPressed: _submit,
+            ),
+            TextButton(
+              onPressed: () => context.go('/login'),
+              child: const Text('Already registered? Sign in'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

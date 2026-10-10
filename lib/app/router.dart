@@ -15,6 +15,9 @@ import 'package:smart_student_companion/features/auth/presentation/welcome_scree
 import 'package:smart_student_companion/features/parent/presentation/child_attendance.dart';
 import 'package:smart_student_companion/features/parent/presentation/child_performance.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_dashboard.dart';
+import 'package:smart_student_companion/features/parent/presentation/parent_phone_verification_screen.dart';
+import 'package:smart_student_companion/features/parent/presentation/parent_profile_screen.dart';
+import 'package:smart_student_companion/features/parent/presentation/parent_role_verification_screen.dart';
 import 'package:smart_student_companion/features/student/presentation/student_assignments.dart';
 import 'package:smart_student_companion/features/student/presentation/student_attendance.dart';
 import 'package:smart_student_companion/features/student/presentation/student_dashboard.dart';
@@ -43,7 +46,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           location == '/register/select-role' ||
           location.startsWith('/register/') ||
           location == '/account-created' ||
-          location == '/forgot-password') {
+          location == '/forgot-password' ||
+          location == '/who-are-you' ||
+          location == '/parent-verify-role' ||
+          location == '/parent-phone-verify' ||
+          location == '/parent-verify-otp') {
         return null;
       }
 
@@ -61,7 +68,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (location.startsWith('/faculty') && user.role != UserRole.faculty) {
         return '/login';
       }
-      if (location.startsWith('/parent') && user.role != UserRole.parent) {
+      if (location.startsWith('/parent') &&
+          location != '/parent-phone-verify' &&
+          location != '/parent-verify-otp' &&
+          location != '/parent-verify-role' &&
+          user.role != UserRole.parent) {
         return '/login';
       }
       if (location.startsWith('/admin') && user.role != UserRole.admin) {
@@ -99,6 +110,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register/admin',
         builder: (context, state) =>
             const RegistrationScreen(role: UserRole.admin),
+      ),
+      GoRoute(
+        path: '/register/parent',
+        builder: (context, state) => const ParentRegistrationScreen(),
       ),
       GoRoute(
         path: '/forgot-password',
@@ -153,6 +168,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TeacherLeaveRequests(),
       ),
       GoRoute(
+        path: '/who-are-you',
+        builder: (context, state) => const ParentRoleVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/parent-phone-verify',
+        builder: (context, state) => const ParentPhoneVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/parent-verify-role',
+        redirect: (context, state) => '/who-are-you',
+      ),
+      GoRoute(
+        path: '/parent-verify-otp',
+        redirect: (context, state) => '/parent-phone-verify',
+      ),
+      GoRoute(
         path: '/parent',
         builder: (context, state) => const ParentDashboard(),
       ),
@@ -163,6 +194,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/parent/performance',
         builder: (context, state) => const ChildPerformance(),
+      ),
+      GoRoute(
+        path: '/parent/profile',
+        builder: (context, state) => const ParentProfileScreen(),
       ),
       GoRoute(
         path: '/admin',
@@ -212,6 +247,7 @@ class AppRouter {
       case '/parent':
       case '/parent/attendance':
       case '/parent/performance':
+      case '/parent/profile':
         return role == UserRole.parent;
       case '/admin':
       case '/admin/users':

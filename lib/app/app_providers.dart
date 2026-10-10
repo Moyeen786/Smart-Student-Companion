@@ -58,6 +58,10 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
     }
   }
 
+  void setAuthenticatedUser(UserModel user) {
+    state = AsyncData(AuthState(isAuthenticated: true, user: user));
+  }
+
   Future<void> register({
     required UserRole role,
     required String name,
