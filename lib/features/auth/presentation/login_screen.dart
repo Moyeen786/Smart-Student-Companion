@@ -5,6 +5,7 @@ import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_button.dart';
 import 'package:smart_student_companion/core/widgets/app_text_field.dart';
+import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -33,7 +34,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .login(_emailController.text.trim(), _passwordController.text);
     if (!mounted) return;
     final user = ref.read(authStateProvider).valueOrNull?.user;
-    if (user != null) context.go(_dashboardFor(user.role));
+    if (user != null) {
+      if (user.role == UserRole.student) {
+        ref.read(parentCandidateStudentProvider.notifier).state = user;
+        context.go('/who-are-you');
+      } else {
+        context.go(_dashboardFor(user.role));
+      }
+    }
   }
 
   String _dashboardFor(UserRole role) => switch (role) {
@@ -144,19 +152,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const Text('Sign in to continue to your academic portal.'),
                 const SizedBox(height: 26),
                 AppTextField(
-                  label: 'University Email',
+                  label: 'Email / Username',
+                  hintText: 'Enter university email or username',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  prefixIcon: Icons.email_outlined,
+                  prefixIcon: Icons.person_outline,
                   onSubmitted: (_) => _submit(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your university email.';
+                      return 'Please enter your email or username.';
                     }
-                    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                            .hasMatch(value.trim())
-                        ? null
-                        : 'Enter a valid email address.';
+                    return null;
                   },
                 ),
                 const SizedBox(height: 16),

@@ -39,8 +39,13 @@ class UserModel {
     required this.role,
     required this.department,
     required this.semester,
-    required this.createdAt,
+    this.createdAt,
     this.rollNumber = '',
+    this.parentName = '',
+    this.parentPhone = '',
+    this.childStudentId = '',
+    this.cgpa = 0.0,
+    this.overallAttendance = 0.0,
   });
 
   final String uid;
@@ -49,8 +54,13 @@ class UserModel {
   final UserRole role;
   final String department;
   final int semester;
-  final DateTime createdAt;
+  final DateTime? createdAt;
   final String rollNumber;
+  final String parentName;
+  final String parentPhone;
+  final String childStudentId;
+  final double cgpa;
+  final double overallAttendance;
 
   UserModel copyWith({
     String? uid,
@@ -61,6 +71,11 @@ class UserModel {
     int? semester,
     DateTime? createdAt,
     String? rollNumber,
+    String? parentName,
+    String? parentPhone,
+    String? childStudentId,
+    double? cgpa,
+    double? overallAttendance,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -71,6 +86,11 @@ class UserModel {
       semester: semester ?? this.semester,
       createdAt: createdAt ?? this.createdAt,
       rollNumber: rollNumber ?? this.rollNumber,
+      parentName: parentName ?? this.parentName,
+      parentPhone: parentPhone ?? this.parentPhone,
+      childStudentId: childStudentId ?? this.childStudentId,
+      cgpa: cgpa ?? this.cgpa,
+      overallAttendance: overallAttendance ?? this.overallAttendance,
     );
   }
 
@@ -87,6 +107,12 @@ class UserModel {
           : DateTime.now(),
       rollNumber:
           map['rollNumber'] as String? ?? map['accountId'] as String? ?? '',
+      parentName: map['parentName'] as String? ?? '',
+      parentPhone:
+          map['parentPhone'] as String? ?? map['guardianPhone'] as String? ?? '',
+      childStudentId: map['childStudentId'] as String? ?? '',
+      cgpa: (map['cgpa'] as num?)?.toDouble() ?? 8.45,
+      overallAttendance: (map['overallAttendance'] as num?)?.toDouble() ?? 91.5,
     );
   }
 
@@ -100,6 +126,11 @@ class UserModel {
       'semester': semester,
       'createdAt': createdAt,
       'rollNumber': rollNumber,
+      'parentName': parentName,
+      'parentPhone': parentPhone,
+      'childStudentId': childStudentId,
+      'cgpa': cgpa,
+      'overallAttendance': overallAttendance,
     };
   }
 }

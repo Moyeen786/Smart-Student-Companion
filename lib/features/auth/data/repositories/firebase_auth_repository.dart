@@ -25,8 +25,25 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<UserModel> login(String email, String password) async {
+    String resolvedEmail = email.trim();
+    if (!resolvedEmail.contains('@')) {
+      try {
+        final snap = await _firestore
+            .collection('users')
+            .where('rollNumber', isEqualTo: resolvedEmail.toUpperCase())
+            .limit(1)
+            .get();
+        if (snap.docs.isNotEmpty && snap.docs.first.data()['email'] != null) {
+          resolvedEmail = snap.docs.first.data()['email'] as String;
+        } else {
+          resolvedEmail = '$resolvedEmail@campus.edu';
+        }
+      } catch (_) {
+        resolvedEmail = '$resolvedEmail@campus.edu';
+      }
+    }
     final credential = await _auth.signInWithEmailAndPassword(
-      email: email,
+      email: resolvedEmail,
       password: password,
     );
     final firebaseUser = credential.user;
