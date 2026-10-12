@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_card.dart';
-import 'package:smart_student_companion/core/widgets/section_header.dart';
-import 'package:smart_student_companion/core/widgets/stat_card.dart';
+
 
 class TeacherDashboard extends ConsumerWidget {
   const TeacherDashboard({super.key});
