@@ -225,7 +225,12 @@ class AdminSidebar extends ConsumerWidget {
       label,
       style: const TextStyle(color: Color(0xFFB8CBE5), fontSize: 12.5),
     ),
-    onTap: () => context.go(route),
+    onTap: () {
+      if (Scaffold.maybeOf(context)?.isDrawerOpen == true) {
+        Navigator.of(context).pop();
+      }
+      context.go(route);
+    },
   );
 
   Widget _logoutItem(BuildContext context, WidgetRef ref) => ListTile(

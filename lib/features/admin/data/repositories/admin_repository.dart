@@ -9,6 +9,7 @@ abstract class AdminRepository {
   Future<List<DepartmentSummary>> departments();
   Future<List<ActivityItem>> activities();
   Future<AdminOverview> overview();
+  Future<void> updateUserStatus(String uid, RecordStatus status);
 }
 
 class FirestoreAdminRepository implements AdminRepository {
@@ -83,6 +84,10 @@ class FirestoreAdminRepository implements AdminRepository {
     final students = users.docs
         .where((doc) => doc.data()['role'] == 'student')
         .length;
+    final activeUsers = users.docs.where((doc) {
+      final status = doc.data()['status'] as String?;
+      return status == null || status == 'active';
+    }).length;
     final faculty = users.docs.where((doc) {
       final role = doc.data()['role'];
       return role == 'faculty' || role == 'teacher';
@@ -98,10 +103,15 @@ class FirestoreAdminRepository implements AdminRepository {
       students: students,
       faculty: faculty,
       departments: departments.size,
+      activeUsers: activeUsers,
       activeEvents: activeEvents,
       attendance: attendance?.round(),
     );
   }
+
+  @override
+  Future<void> updateUserStatus(String uid, RecordStatus status) =>
+      _firestore.collection('users').doc(uid).update({'status': status.name});
 
   RecordStatus _status(String? value) => RecordStatus.values.firstWhere(
     (status) => status.name == value,

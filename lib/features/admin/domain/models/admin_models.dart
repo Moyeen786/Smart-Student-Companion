@@ -4,6 +4,7 @@ import 'package:smart_student_companion/models/user_model.dart';
 
 enum RecordStatus {
   active,
+  inactive,
   published,
   scheduled,
   draft,
@@ -37,6 +38,7 @@ enum AnnouncementStatus { draft, scheduled, published, archived }
 extension RecordStatusLabel on RecordStatus {
   String get label => switch (this) {
     RecordStatus.active => 'Active',
+    RecordStatus.inactive => 'Inactive',
     RecordStatus.published => 'Published',
     RecordStatus.scheduled => 'Scheduled',
     RecordStatus.draft => 'Draft',
@@ -49,6 +51,7 @@ extension RecordStatusLabel on RecordStatus {
 
   Color get color => switch (this) {
     RecordStatus.active || RecordStatus.published => const Color(0xFF1F7A52),
+    RecordStatus.inactive => const Color(0xFFCF4B4B),
     RecordStatus.scheduled => const Color(0xFF2563A6),
     RecordStatus.draft || RecordStatus.archived => const Color(0xFF667085),
     RecordStatus.reported || RecordStatus.review => const Color(0xFFB26A00),
@@ -283,6 +286,7 @@ class AdminOverview {
     required this.students,
     required this.faculty,
     required this.departments,
+    required this.activeUsers,
     required this.activeEvents,
     this.attendance,
   });
@@ -290,6 +294,7 @@ class AdminOverview {
   final int students;
   final int faculty;
   final int departments;
+  final int activeUsers;
   final int activeEvents;
   final int? attendance;
 }

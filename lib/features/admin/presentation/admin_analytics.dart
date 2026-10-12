@@ -51,7 +51,7 @@ class AdminAnalytics extends ConsumerWidget {
         children: [
           SizedBox(
             width: 210,
-            height: 125,
+            height: 160,
             child: AdminStatCard(
               label: 'Overall attendance',
               value: overview.attendance == null
@@ -64,7 +64,7 @@ class AdminAnalytics extends ConsumerWidget {
           ),
           SizedBox(
             width: 210,
-            height: 125,
+            height: 160,
             child: AdminStatCard(
               label: 'Students',
               value: '${overview.students}',
@@ -75,7 +75,7 @@ class AdminAnalytics extends ConsumerWidget {
           ),
           SizedBox(
             width: 210,
-            height: 125,
+            height: 160,
             child: AdminStatCard(
               label: 'Faculty',
               value: '${overview.faculty}',

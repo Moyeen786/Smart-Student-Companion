@@ -298,6 +298,11 @@ class StudentDashboard extends ConsumerWidget {
                   icon: Icons.note_alt_outlined,
                   onTap: () => context.push('/student/notes'),
                 ),
+                _QuickAction(
+                  label: 'Lost & Found',
+                  icon: Icons.inventory_2_outlined,
+                  onTap: () => context.push('/student/lost-found'),
+                ),
               ],
             ),
           ],

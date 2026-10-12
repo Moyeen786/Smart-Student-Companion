@@ -129,6 +129,25 @@ class TeacherDashboard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 28),
+            SectionHeader(
+              title: 'Campus services',
+              action: TextButton(
+                onPressed: () => context.push('/faculty/lost-found'),
+                child: const Text('Lost & Found'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            AppCard(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Lost & Found'),
+                subtitle: const Text('Report or find an item on campus.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/faculty/lost-found'),
+              ),
+            ),
+            const SizedBox(height: 28),
             const SectionHeader(title: "Today's classes"),
             const SizedBox(height: 8),
             const AppCard(

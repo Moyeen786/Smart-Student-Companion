@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_student_companion/features/auth/data/repositories/auth_repository.dart';
 import 'package:smart_student_companion/features/auth/data/repositories/firebase_auth_repository.dart';
+import 'package:smart_student_companion/core/notifications/notification_service.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 class AuthState {
@@ -16,6 +17,12 @@ class AuthState {
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return FirebaseAuthRepository();
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  final service = NotificationService();
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final authStateProvider =

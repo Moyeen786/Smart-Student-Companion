@@ -1,11 +1,49 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/features/admin/data/repositories/admin_repository.dart';
+import 'package:smart_student_companion/features/admin/data/repositories/campus_service_repository.dart';
+import 'package:smart_student_companion/features/admin/data/repositories/library_repository.dart';
 import 'package:smart_student_companion/features/admin/domain/models/admin_models.dart';
+import 'package:smart_student_companion/features/admin/domain/models/campus_service_models.dart';
+import 'package:smart_student_companion/features/admin/domain/models/library_models.dart';
 import 'package:smart_student_companion/features/admin/domain/repositories/announcement_repository.dart';
 
 final adminRepositoryProvider = Provider<AdminRepository>(
   (ref) => FirestoreAdminRepository(),
 );
+
+final libraryRepositoryProvider = Provider<LibraryRepository>(
+  (ref) => FirestoreLibraryRepository(),
+);
+
+final libraryBooksProvider = FutureProvider<List<LibraryBook>>(
+  (ref) => ref.watch(libraryRepositoryProvider).books(),
+);
+
+final libraryStatisticsProvider = FutureProvider<LibraryStatistics>(
+  (ref) => ref.watch(libraryRepositoryProvider).statistics(),
+);
+
+final campusServiceRepositoryProvider = Provider<CampusServiceRepository>(
+  (ref) => FirestoreCampusServiceRepository(),
+);
+
+final campusServiceRecordsProvider =
+    FutureProvider.family<List<CampusServiceRecord>, CampusServiceKind>(
+      (ref, kind) => ref.watch(campusServiceRepositoryProvider).records(kind),
+    );
+
+final approvedLostFoundProvider = FutureProvider<List<CampusServiceRecord>>(
+  (ref) => ref.watch(campusServiceRepositoryProvider).approvedLostFound(),
+);
+
+final myLostFoundReportsProvider = FutureProvider<List<CampusServiceRecord>>((
+  ref,
+) {
+  final userId = ref.watch(authStateProvider).valueOrNull?.user?.uid;
+  if (userId == null) return const <CampusServiceRecord>[];
+  return ref.watch(campusServiceRepositoryProvider).myLostFoundReports(userId);
+});
 
 final announcementRepositoryProvider = Provider<AnnouncementRepository>(
   (ref) => FirestoreAnnouncementRepository(),

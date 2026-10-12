@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/features/admin/domain/models/admin_models.dart';
 import 'package:smart_student_companion/features/admin/presentation/widgets/admin_widgets.dart';
@@ -290,12 +291,28 @@ class _AdminAnnouncementsState extends ConsumerState<AdminAnnouncements> {
     Announcement announcement,
     AnnouncementStatus status,
   ) async {
-    await ref
+    final savedAnnouncement = await ref
         .read(announcementRepositoryProvider)
         .saveAnnouncement(
           announcement.copyWith(status: status, publishedAt: DateTime.now()),
         );
-    _refresh('Announcement published.');
+    var notificationQueued = false;
+    if (status == AnnouncementStatus.published &&
+        announcement.status != AnnouncementStatus.published) {
+      try {
+        await ref
+            .read(notificationServiceProvider)
+            .enqueueAnnouncement(savedAnnouncement);
+        notificationQueued = true;
+      } catch (_) {
+        notificationQueued = false;
+      }
+    }
+    _refresh(
+      notificationQueued
+          ? 'Announcement published. Notification request queued.'
+          : 'Announcement published, but notification delivery could not be initiated.',
+    );
   }
 
   Future<bool> _confirm(String title, String message) async =>

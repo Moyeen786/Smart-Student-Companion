@@ -15,6 +15,8 @@ class UserManagement extends ConsumerStatefulWidget {
 class _UserManagementState extends ConsumerState<UserManagement> {
   final search = TextEditingController();
   int tab = 0;
+  String? departmentFilter;
+  int? yearFilter;
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(adminUsersProvider);
@@ -43,6 +45,20 @@ class _UserManagementState extends ConsumerState<UserManagement> {
   );
   Widget _content(BuildContext context, List<AdminUser> allUsers) {
     final q = search.text.toLowerCase();
+    final departments =
+        allUsers
+            .map((item) => item.user.department)
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final years =
+        allUsers
+            .map((item) => item.user.semester)
+            .where((value) => value > 0)
+            .toSet()
+            .toList()
+          ..sort();
     final users = allUsers.where((item) {
       final matches =
           item.user.name.toLowerCase().contains(q) ||
@@ -53,7 +69,10 @@ class _UserManagementState extends ConsumerState<UserManagement> {
           (tab == 1 && item.user.role.name == 'student') ||
           (tab == 2 && item.user.role.name == 'faculty') ||
           (tab == 3 && item.user.role.name == 'parent');
-      return matches && role;
+      final department =
+          departmentFilter == null || item.user.department == departmentFilter;
+      final year = yearFilter == null || item.user.semester == yearFilter;
+      return matches && role && department && year;
     }).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 26, 28, 36),
@@ -81,6 +100,48 @@ class _UserManagementState extends ConsumerState<UserManagement> {
           ),
         ),
         const SizedBox(height: 20),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: 210,
+              child: DropdownButtonFormField<String>(
+                initialValue: departmentFilter,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Department'),
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('All departments'),
+                  ),
+                  ...departments.map(
+                    (value) =>
+                        DropdownMenuItem(value: value, child: Text(value)),
+                  ),
+                ],
+                onChanged: (value) => setState(() => departmentFilter = value),
+              ),
+            ),
+            SizedBox(
+              width: 170,
+              child: DropdownButtonFormField<int>(
+                initialValue: yearFilter,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Semester / year'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('All years')),
+                  ...years.map(
+                    (value) =>
+                        DropdownMenuItem(value: value, child: Text('$value')),
+                  ),
+                ],
+                onChanged: (value) => setState(() => yearFilter = value),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         DefaultTabController(
           length: 4,
           child: AdminCard(
@@ -106,8 +167,19 @@ class _UserManagementState extends ConsumerState<UserManagement> {
                       'No users match the current filters.',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: 760,
+                      child: Column(
+                        children: users
+                            .map((item) => _row(context, item))
+                            .toList(),
+                      ),
+                    ),
                   ),
-                ...users.map((item) => _row(context, item)),
               ],
             ),
           ),
@@ -178,12 +250,44 @@ class _UserManagementState extends ConsumerState<UserManagement> {
             ),
           ),
           StatusBadge(status: item.status),
+          PopupMenuButton<String>(
+            tooltip: 'Account status',
+            onSelected: (value) => _changeStatus(
+              item,
+              value == 'active' ? RecordStatus.active : RecordStatus.inactive,
+            ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'active', child: Text('Activate account')),
+              PopupMenuItem(
+                value: 'inactive',
+                child: Text('Deactivate account'),
+              ),
+            ],
+          ),
           const SizedBox(width: 8),
           const Icon(Icons.chevron_right, color: AppColors.muted, size: 19),
         ],
       ),
     ),
   );
+
+  Future<void> _changeStatus(AdminUser item, RecordStatus status) async {
+    if (item.status == status) return;
+    await ref
+        .read(adminRepositoryProvider)
+        .updateUserStatus(item.user.uid, status);
+    ref.invalidate(adminUsersProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item.user.name} marked ${status.label.toLowerCase()}.',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     search.dispose();

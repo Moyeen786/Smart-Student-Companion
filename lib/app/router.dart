@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_analytics.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_announcements.dart';
+import 'package:smart_student_companion/features/admin/presentation/admin_campus_service.dart';
+import 'package:smart_student_companion/features/admin/domain/models/campus_service_models.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_dashboard.dart';
+import 'package:smart_student_companion/features/admin/presentation/admin_library.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_profile.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_secondary.dart';
 import 'package:smart_student_companion/features/admin/presentation/admin_utilities.dart';
@@ -12,6 +15,7 @@ import 'package:smart_student_companion/features/admin/presentation/announcement
 import 'package:smart_student_companion/features/admin/domain/models/admin_models.dart';
 import 'package:smart_student_companion/features/admin/presentation/create_announcement_screen.dart';
 import 'package:smart_student_companion/features/admin/presentation/user_management.dart';
+import 'package:smart_student_companion/features/notifications/presentation/announcement_reader_screen.dart';
 import 'package:smart_student_companion/features/auth/presentation/login_screen.dart';
 import 'package:smart_student_companion/features/auth/presentation/account_created_screen.dart';
 import 'package:smart_student_companion/features/auth/presentation/registration_screens.dart';
@@ -30,6 +34,7 @@ import 'package:smart_student_companion/features/teacher/presentation/teacher_as
 import 'package:smart_student_companion/features/teacher/presentation/teacher_attendance.dart';
 import 'package:smart_student_companion/features/teacher/presentation/teacher_dashboard.dart';
 import 'package:smart_student_companion/features/teacher/presentation/teacher_leave_requests.dart';
+import 'package:smart_student_companion/features/lost_found/presentation/lost_found_screen.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -118,6 +123,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/announcements/:id',
+        builder: (context, state) =>
+            AnnouncementReaderScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(
         path: '/student',
         builder: (context, state) => const StudentDashboard(),
       ),
@@ -142,6 +152,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const StudentNotes(),
       ),
       GoRoute(
+        path: '/student/lost-found',
+        builder: (context, state) => const LostFoundScreen(),
+      ),
+      GoRoute(
         path: '/faculty',
         builder: (context, state) => const TeacherDashboard(),
       ),
@@ -156,6 +170,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/faculty/leave-requests',
         builder: (context, state) => const TeacherLeaveRequests(),
+      ),
+      GoRoute(
+        path: '/faculty/lost-found',
+        builder: (context, state) => const LostFoundScreen(),
       ),
       GoRoute(
         path: '/parent',
@@ -215,35 +233,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/utilities/library',
-        builder: (context, state) => const AdminSecondaryScreen(
-          title: 'Library',
-          subtitle: 'Books, circulation and library notices.',
-          icon: Icons.menu_book_outlined,
-        ),
+        builder: (context, state) => const AdminLibrary(),
       ),
       GoRoute(
         path: '/admin/utilities/placements',
-        builder: (context, state) => const AdminSecondaryScreen(
-          title: 'Placements',
-          subtitle: 'Companies, drives and student outcomes.',
-          icon: Icons.work_outline_rounded,
-        ),
+        builder: (context, state) =>
+            const AdminCampusService(kind: CampusServiceKind.placements),
       ),
       GoRoute(
         path: '/admin/utilities/events',
-        builder: (context, state) => const AdminSecondaryScreen(
-          title: 'Events',
-          subtitle: 'Publish and manage campus events.',
-          icon: Icons.event_outlined,
-        ),
+        builder: (context, state) =>
+            const AdminCampusService(kind: CampusServiceKind.events),
       ),
       GoRoute(
         path: '/admin/utilities/lost-found',
-        builder: (context, state) => const AdminSecondaryScreen(
-          title: 'Lost & Found',
-          subtitle: 'Review and resolve reported items.',
-          icon: Icons.inventory_2_outlined,
-        ),
+        builder: (context, state) =>
+            const AdminCampusService(kind: CampusServiceKind.lostFound),
       ),
       GoRoute(
         path: '/admin/profile',

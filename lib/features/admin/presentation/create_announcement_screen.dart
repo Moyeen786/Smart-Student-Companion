@@ -885,16 +885,31 @@ class _CreateAnnouncementScreenState
         attachmentName: _attachment?.name,
       );
 
-      await repository.saveAnnouncement(announcement);
+      final savedAnnouncement = await repository.saveAnnouncement(announcement);
+      var notificationQueued = false;
+      final shouldQueueNotification =
+          !saveDraft &&
+          _publishNow &&
+          widget.initialAnnouncement?.status != AnnouncementStatus.published;
+      if (shouldQueueNotification) {
+        try {
+          await ref
+              .read(notificationServiceProvider)
+              .enqueueAnnouncement(savedAnnouncement);
+          notificationQueued = true;
+        } catch (_) {
+          notificationQueued = false;
+        }
+      }
       ref.invalidate(adminAnnouncementsProvider);
       if (!mounted) return;
       final message = saveDraft
           ? 'Announcement saved as draft.'
           : (!_publishNow
                 ? 'Announcement scheduled successfully.'
-                : widget.initialAnnouncement == null
-                ? 'Announcement published successfully.'
-                : 'Announcement updated successfully.');
+                : notificationQueued
+                ? 'Announcement published. Notification request queued.'
+                : 'Announcement published, but notification delivery could not be initiated.');
       context.go('/admin/announcements');
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
