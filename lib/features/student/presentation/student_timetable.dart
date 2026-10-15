@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -217,10 +216,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
         selectedIndex: 2,
         onDestinationSelected: _navigate,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.fact_check_outlined),
             label: 'Attendance',
@@ -288,10 +284,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
             else
               ...List.generate(
                 classes.length,
-                (index) => _buildClassCard(
-                  classes[index],
-                  index,
-                ),
+                (index) => _buildClassCard(classes[index], index),
               ),
             const SizedBox(height: 18),
             _buildReminderCard(),
@@ -306,10 +299,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF3456D1),
-            Color(0xFF647FEA),
-          ],
+          colors: [Color(0xFF3456D1), Color(0xFF647FEA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -384,9 +374,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
               duration: const Duration(milliseconds: 180),
               width: 62,
               decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFF3456D1)
-                    : Colors.white,
+                color: selected ? const Color(0xFF3456D1) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: selected
@@ -400,9 +388,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
                   Text(
                     _shortDays[index],
                     style: TextStyle(
-                      color: selected
-                          ? Colors.white
-                          : const Color(0xFF64748B),
+                      color: selected ? Colors.white : const Color(0xFF64748B),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -411,9 +397,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
                   Icon(
                     Icons.circle,
                     size: 9,
-                    color: selected
-                        ? Colors.white
-                        : const Color(0xFFD6DCE8),
+                    color: selected ? Colors.white : const Color(0xFFD6DCE8),
                   ),
                 ],
               ),
@@ -424,14 +408,9 @@ class _StudentTimetableState extends State<StudentTimetable> {
     );
   }
 
-  Widget _buildClassCard(
-    Map<String, String> item,
-    int index,
-  ) {
+  Widget _buildClassCard(Map<String, String> item, int index) {
     final isLab = item['type'] == 'Lab';
-    final color = isLab
-        ? const Color(0xFF8B5CF6)
-        : const Color(0xFF3456D1);
+    final color = isLab ? const Color(0xFF8B5CF6) : const Color(0xFF3456D1);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -520,10 +499,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
                 ),
               ),
               const SizedBox(width: 5),
-              const Icon(
-                Icons.chevron_right,
-                color: Color(0xFF94A3B8),
-              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
             ],
           ),
         ),
@@ -549,19 +525,13 @@ class _StudentTimetableState extends State<StudentTimetable> {
           SizedBox(height: 12),
           Text(
             'No classes scheduled',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 6),
           Text(
             'Enjoy your day! There are no classes listed for this day.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
           ),
         ],
       ),
@@ -578,10 +548,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.tips_and_updates_outlined,
-            color: Color(0xFF3456D1),
-          ),
+          Icon(Icons.tips_and_updates_outlined, color: Color(0xFF3456D1)),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -597,10 +564,7 @@ class _StudentTimetableState extends State<StudentTimetable> {
                 SizedBox(height: 5),
                 Text(
                   'Check your timetable regularly. Your actual class schedule may change.',
-                  style: TextStyle(
-                    color: Color(0xFF53627D),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Color(0xFF53627D), fontSize: 12),
                 ),
               ],
             ),
@@ -630,26 +594,10 @@ class _StudentTimetableState extends State<StudentTimetable> {
                 ),
               ),
               const SizedBox(height: 18),
-              _detailRow(
-                Icons.access_time_outlined,
-                'Time',
-                item['time']!,
-              ),
-              _detailRow(
-                Icons.location_on_outlined,
-                'Room',
-                item['room']!,
-              ),
-              _detailRow(
-                Icons.person_outline,
-                'Faculty',
-                item['faculty']!,
-              ),
-              _detailRow(
-                Icons.category_outlined,
-                'Class Type',
-                item['type']!,
-              ),
+              _detailRow(Icons.access_time_outlined, 'Time', item['time']!),
+              _detailRow(Icons.location_on_outlined, 'Room', item['room']!),
+              _detailRow(Icons.person_outline, 'Faculty', item['faculty']!),
+              _detailRow(Icons.category_outlined, 'Class Type', item['type']!),
             ],
           ),
         );
@@ -657,21 +605,14 @@ class _StudentTimetableState extends State<StudentTimetable> {
     );
   }
 
-  Widget _detailRow(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
           Icon(icon, color: const Color(0xFF3456D1), size: 20),
           const SizedBox(width: 12),
-          Text(
-            '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
           Expanded(child: Text(value)),
         ],
       ),
@@ -690,6 +631,10 @@ class _StudentTimetableState extends State<StudentTimetable> {
 
     if (index == 2) return;
 
-    context.go(routes[index]);
+    if (index == routes.length - 1) {
+      context.push(routes[index]);
+    } else {
+      context.go(routes[index]);
+    }
   }
 }

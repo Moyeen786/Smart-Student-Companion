@@ -108,8 +108,10 @@ class AdminProfile extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 _action(context, Icons.logout_rounded, 'Log out', () async {
-                  await ref.read(authStateProvider.notifier).logout();
-                  if (context.mounted) context.go('/login');
+                  final loggedOut = await ref
+                      .read(authStateProvider.notifier)
+                      .logout();
+                  if (loggedOut && context.mounted) context.go('/login');
                 }),
               ],
             ),

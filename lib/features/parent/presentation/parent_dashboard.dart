@@ -6,82 +6,136 @@ import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_card.dart';
 import 'package:smart_student_companion/core/widgets/section_header.dart';
 import 'package:smart_student_companion/core/widgets/stat_card.dart';
+import 'package:smart_student_companion/core/widgets/responsive_grid.dart';
 import 'package:smart_student_companion/features/parent/data/parent_models.dart';
 import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
-import 'package:smart_student_companion/models/user_model.dart';
+import 'package:smart_student_companion/features/parent/data/parent_demo_mode.dart';
 
 class ParentDashboard extends ConsumerWidget {
-  const ParentDashboard({super.key});
+  const ParentDashboard({super.key, this.demoMode = false});
+
+  final bool demoMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
-    final user = authState.valueOrNull?.user;
+    final isDemo = demoMode && ref.watch(parentDemoModeProvider);
+    // Parent data is rendered only when loaded from an authorized source.
+    final summaryState = isDemo
+        ? AsyncValue.data(ref.watch(parentDemoSummaryProvider))
+        : ref.watch(parentChildProfileProvider);
 
-    // Get active child summary or generate dynamically from user
-    final summary =
-        ref.watch(parentActiveChildSummaryProvider) ??
-        ChildAcademicSummary.generateForStudent(
-          user ??
-              const UserModel(
-                uid: 'parent-demo',
-                name: 'Student Account',
-                email: 'student@campus.edu',
-                role: UserRole.student,
-                department: 'Computer Science and Engineering',
-                semester: 5,
-                rollNumber: 'CS2023001',
+    if (summaryState.isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(isDemo ? 'Parent Demo Dashboard' : 'Parent Dashboard'),
+        ),
+        bottomNavigationBar: isDemo
+            ? null
+            : const ParentBottomNav(currentIndex: 0),
+        body: const SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
+    }
+
+    if (summaryState.hasError) {
+      final error = summaryState.error;
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(isDemo ? 'Parent Demo Dashboard' : 'Parent Dashboard'),
+        ),
+        bottomNavigationBar: isDemo
+            ? null
+            : const ParentBottomNav(currentIndex: 0),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, size: 40),
+                  const SizedBox(height: 12),
+                  Text(
+                    error.toString().replaceFirst('Bad state: ', ''),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () => ref.invalidate(parentChildProfileProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
-        );
+            ),
+          ),
+        ),
+      );
+    }
+
+    final summary = summaryState.requireValue;
 
     final student = summary.student;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Parent Dashboard'),
-        actions: [
-          IconButton(
-            tooltip: 'Parent Profile',
-            onPressed: () => context.go('/parent/profile'),
-            icon: const Icon(Icons.account_circle_outlined),
-          ),
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: () async {
-              await ref.read(authStateProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
-            },
-            icon: const Icon(Icons.logout_outlined),
-          ),
-        ],
+        title: Text(isDemo ? 'Parent Demo Dashboard' : 'Parent Dashboard'),
+        actions: isDemo
+            ? []
+            : [
+                IconButton(
+                  tooltip: 'Parent Profile',
+                  onPressed: () => context.push('/parent/profile'),
+                  icon: const Icon(Icons.account_circle_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Sign out',
+                  onPressed: () async {
+                    final loggedOut = await ref
+                        .read(authStateProvider.notifier)
+                        .logout();
+                    if (loggedOut && context.mounted) context.go('/login');
+                  },
+                  icon: const Icon(Icons.logout_outlined),
+                ),
+              ],
       ),
-      bottomNavigationBar: const ParentBottomNav(currentIndex: 0),
+      bottomNavigationBar: isDemo
+          ? null
+          : const ParentBottomNav(currentIndex: 0),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
+            if (isDemo) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  parentDemoDisclaimer,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             // Child Info Banner Header
             _ChildProfileCard(
               name: student.name,
               rollNumber: student.rollNumber.isNotEmpty
                   ? student.rollNumber
-                  : 'CS2023001',
+                  : 'Not provided',
               department: student.department.isNotEmpty
                   ? student.department
-                  : 'Computer Science & Engineering',
-              semester: student.semester > 0 ? student.semester : 5,
-              onViewProfile: () => context.go('/parent/profile'),
+                  : 'Department not provided',
+              semester: student.semester,
+              onViewProfile: () => context.push('/parent/profile'),
             ),
             const SizedBox(height: 20),
 
             // Top Key Academic Statistics Grid
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
+            ResponsiveGrid(
+              tileHeight: isDemo ? 160 : 140,
               children: [
                 StatCard(
                   label: 'Attendance',
@@ -108,7 +162,10 @@ class ParentDashboard extends ConsumerWidget {
                 ),
                 StatCard(
                   label: 'Active Alerts',
-                  value: summary.smartInsights.length.toString().padLeft(2, '0'),
+                  value: summary.smartInsights.length.toString().padLeft(
+                    2,
+                    '0',
+                  ),
                   icon: Icons.notification_important_rounded,
                   color: const Color(0xFFF1E8FF),
                 ),
@@ -127,9 +184,9 @@ class ParentDashboard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Smart Insights',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -323,53 +380,55 @@ class ParentDashboard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...summary.upcomingExams.map((exam) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.event_available_rounded,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      exam.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${exam.subject} • ${exam.dateString} (${exam.time})',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE9F1FF),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${exam.daysLeft}d left',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                  ...summary.upcomingExams.map(
+                    (exam) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.event_available_rounded,
                           color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        exam.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${exam.subject} • ${exam.dateString} (${exam.time})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE9F1FF),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${exam.daysLeft}d left',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                     ),
-                  )),
+                  ),
                   const SizedBox(height: 12),
                   const Divider(height: 1),
                   const SizedBox(height: 12),
@@ -383,51 +442,53 @@ class ParentDashboard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...summary.upcomingAssignments.map((assign) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: assign.isUrgent
-                            ? AppColors.warning.withOpacity(0.15)
-                            : AppColors.surface,
-                        borderRadius: BorderRadius.circular(8),
+                  ...summary.upcomingAssignments.map(
+                    (assign) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: assign.isUrgent
+                              ? AppColors.warning.withOpacity(0.15)
+                              : AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.assignment_outlined,
+                          color: assign.isUrgent
+                              ? AppColors.warning
+                              : AppColors.textSecondary,
+                          size: 20,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.assignment_outlined,
-                        color: assign.isUrgent
-                            ? AppColors.warning
-                            : AppColors.textSecondary,
-                        size: 20,
+                      title: Text(
+                        assign.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${assign.subject} • ${assign.dueDateString}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      trailing: Text(
+                        assign.status,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: assign.isUrgent
+                              ? AppColors.danger
+                              : assign.status == 'Submitted'
+                              ? AppColors.success
+                              : AppColors.primary,
+                        ),
                       ),
                     ),
-                    title: Text(
-                      assign.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${assign.subject} • ${assign.dueDateString}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: Text(
-                      assign.status,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: assign.isUrgent
-                            ? AppColors.danger
-                            : assign.status == 'Submitted'
-                            ? AppColors.success
-                            : AppColors.primary,
-                      ),
-                    ),
-                  )),
+                  ),
                 ],
               ),
             ),
@@ -840,7 +901,11 @@ class ParentBottomNav extends StatelessWidget {
       selectedIndex: currentIndex,
       onDestinationSelected: (index) {
         if (index != currentIndex && index < routes.length) {
-          context.go(routes[index]);
+          if (index == routes.length - 1) {
+            context.push(routes[index]);
+          } else {
+            context.go(routes[index]);
+          }
         }
       },
       destinations: const [
@@ -867,4 +932,39 @@ class ParentBottomNav extends StatelessWidget {
       ],
     );
   }
+}
+
+class ParentAcademicDataUnavailable extends StatelessWidget {
+  const ParentAcademicDataUnavailable({super.key});
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.school_outlined,
+              size: 42,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Academic records are not available yet',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your Parent account is verified. Ask your institution to connect the authorized student record and academic data to this account.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/features/admin/presentation/widgets/admin_widgets.dart';
 
@@ -71,9 +72,15 @@ class AdminSecondaryScreen extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               FilledButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add),
-                label: Text('Add ${title.toLowerCase()}'),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/admin/users');
+                  }
+                },
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Back to user management'),
               ),
             ],
           ),

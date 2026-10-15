@@ -1,12 +1,16 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
-import 'package:smart_student_companion/core/constants/app_constants.dart';
 import 'package:smart_student_companion/core/widgets/app_button.dart';
 import 'package:smart_student_companion/core/widgets/app_text_field.dart';
-import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
+import 'package:smart_student_companion/features/parent/data/parent_registration_service.dart';
+import 'package:smart_student_companion/features/parent/data/parent_demo_mode.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
@@ -28,13 +32,6 @@ class RoleSelectionScreen extends StatelessWidget {
         'Faculty',
         'Manage classes, attendance, assignments and academic activities.',
         '/register/faculty',
-      ),
-      (
-        UserRole.admin,
-        Icons.admin_panel_settings_outlined,
-        'Administrator',
-        'Manage users, announcements and institutional information.',
-        '/register/admin',
       ),
       (
         UserRole.parent,
@@ -82,7 +79,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _department = TextEditingController();
   final _semester = TextEditingController();
   final _designation = TextEditingController();
-  final _inviteCode = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   bool _obscurePassword = true;
@@ -96,7 +92,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       _department,
       _semester,
       _designation,
-      _inviteCode,
       _password,
       _confirmPassword,
     ]) {
@@ -111,11 +106,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (widget.role == UserRole.admin &&
-        _inviteCode.text.trim() != AppConstants.demoAdminAuthorizationCode) {
-      return;
-    }
-    if (widget.role == UserRole.admin && _inviteCode.text.trim().isEmpty) {
+    if (widget.role == UserRole.admin || widget.role == UserRole.parent) {
       return;
     }
     await ref
@@ -130,7 +121,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             'semester': _semester.text.trim(),
             'designation': _designation.text.trim(),
             'rollNumber': _id.text.trim(),
-            'invitationCode': _inviteCode.text.trim(),
           },
         );
     if (!mounted) return;
@@ -146,12 +136,21 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(authStateProvider);
-    final isAdmin = widget.role == UserRole.admin;
+    if (widget.role == UserRole.admin || widget.role == UserRole.parent) {
+      return _PortalPage(
+        title: '${_roleLabel} accounts are provisioned',
+        subtitle: widget.role == UserRole.admin
+            ? 'Administrator accounts must be created by an authorized server-side provisioning process.'
+            : 'Parent accounts must be linked to a student by the authorized provisioning process before phone verification.',
+        child: AppButton(
+          label: 'RETURN TO LOGIN',
+          onPressed: () => context.go('/login'),
+        ),
+      );
+    }
     return _PortalPage(
       title: 'Create $_roleLabel Account',
-      subtitle: isAdmin
-          ? 'Administrator registration requires secure authorization.'
-          : 'Enter your institutional details to get started.',
+      subtitle: 'Enter your institutional details to get started.',
       child: Form(
         key: _formKey,
         child: Column(
@@ -179,9 +178,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             ),
             const SizedBox(height: 14),
             AppTextField(
-              label: isAdmin
-                  ? 'Administrator ID'
-                  : widget.role == UserRole.student
+              label: widget.role == UserRole.student
                   ? 'Roll Number'
                   : 'Faculty ID',
               controller: _id,
@@ -215,32 +212,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 controller: _designation,
                 prefixIcon: Icons.work_outline,
                 validator: (v) => _required(v, 'Designation'),
-              ),
-            ],
-            if (isAdmin) ...[
-              const SizedBox(height: 14),
-              const Card(
-                color: AppColors.surface,
-                child: Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Text(
-                    'Demo mode: use authorization code 4057 to create an administrator account.',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppTextField(
-                label: 'Invitation / Authorization Code',
-                controller: _inviteCode,
-                prefixIcon: Icons.verified_user_outlined,
-                validator: (v) {
-                  if (_required(v, 'Authorization code') != null) {
-                    return _required(v, 'Authorization code');
-                  }
-                  return v!.trim() == AppConstants.demoAdminAuthorizationCode
-                      ? null
-                      : 'Invalid demo authorization code.';
-                },
               ),
             ],
             const SizedBox(height: 14),
@@ -446,145 +417,455 @@ class _ParentRegistrationScreenState
   final _formKey = GlobalKey<FormState>();
   final _studentName = TextEditingController();
   final _rollNumber = TextEditingController();
-  final _department = TextEditingController();
   final _parentPhone = TextEditingController();
-  bool _isLoading = false;
+  final _otp = TextEditingController();
+  final _service = ParentRegistrationService();
+  Timer? _resendTimer;
+  bool _consent = false;
+  bool _otpSent = false;
+  bool _loading = false;
+  bool _approved = false;
   String? _error;
+  String? _studentDisplay;
+  String? _verificationId;
+  int? _resendToken;
+  int _resendSeconds = 0;
+  int _generation = 0;
 
   @override
   void dispose() {
+    _generation++;
+    _resendTimer?.cancel();
     _studentName.dispose();
     _rollNumber.dispose();
-    _department.dispose();
     _parentPhone.dispose();
+    _otp.dispose();
+    unawaited(_service.cancel());
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() => _resendSeconds = 45);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      if (_resendSeconds <= 1) {
+        timer.cancel();
+        setState(() => _resendSeconds = 0);
+      } else {
+        setState(() => _resendSeconds--);
+      }
+    });
+  }
+
+  Future<void> _beginRegistration({int? resendToken}) async {
+    if (_loading) return;
+    if (!_otpSent && !_formKey.currentState!.validate()) return;
+    if (!_otpSent && !_consent) {
+      setState(
+        () => _error = 'Confirm that the student approves this Parent link.',
+      );
+      return;
+    }
+    final generation = ++_generation;
     setState(() {
-      _isLoading = true;
+      _loading = true;
       _error = null;
     });
-
     try {
-      final name = _studentName.text.trim();
-      final roll = _rollNumber.text.trim();
-      final dept = _department.text.trim();
-      final phone = _parentPhone.text.trim();
-
-      await ref.read(parentAuthServiceProvider).registerParentDetails(
-            studentName: name,
-            rollNumber: roll,
-            department: dept,
-            parentPhone: phone,
+      final demoMode = ref.read(parentDemoModeProvider);
+      if (!_otpSent && !demoMode) {
+        final match = await _service.validateStudent(
+          studentName: _studentName.text,
+          rollNumber: _rollNumber.text,
+        );
+        if (match['uid'] != FirebaseAuth.instance.currentUser?.uid) {
+          throw StateError(
+            'Sign in to the matching Student account to approve this Parent link.',
           );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-          content: Row(
-            children: [
-              Icon(Icons.check_circle_outline, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Parent details registered successfully! Please log in to continue.',
-                ),
-              ),
-            ],
-          ),
-          duration: Duration(seconds: 4),
-        ),
-      );
-      context.go('/login');
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
-        });
+        }
+        _studentDisplay = '${match['name']} • ${match['rollNumber']}';
       }
-    } finally {
-      if (mounted) {
+      if (demoMode) {
+        final signedInStudent = ref.read(authStateProvider).valueOrNull?.user;
+        if (signedInStudent == null ||
+            signedInStudent.role != UserRole.student ||
+            signedInStudent.name.trim().toLowerCase() !=
+                _studentName.text.trim().toLowerCase() ||
+            signedInStudent.rollNumber.trim().toLowerCase() !=
+                _rollNumber.text.trim().toLowerCase()) {
+          throw StateError('Enter the signed-in Student name and roll number.');
+        }
+        _studentDisplay =
+            '${signedInStudent.name} • ${signedInStudent.rollNumber} (sample)';
+        if (!mounted || generation != _generation) return;
         setState(() {
-          _isLoading = false;
+          _verificationId = 'DEMO_ONLY';
+          _otpSent = true;
+          _loading = false;
+        });
+        _startResendTimer();
+        return;
+      }
+      await _service.sendCode(
+        phoneNumber: _parentPhone.text,
+        resendToken: resendToken,
+        onCodeSent: (id, token) {
+          if (!mounted || generation != _generation) return;
+          setState(() {
+            _verificationId = id;
+            _resendToken = token;
+            _otpSent = true;
+            _loading = false;
+            _error = null;
+          });
+          _startResendTimer();
+        },
+        onAutoVerified: (credential) => unawaited(
+          _finishRegistration(
+            generation: generation,
+            automaticCredential: credential,
+          ),
+        ),
+        onError: (error) {
+          if (!mounted || generation != _generation) return;
+          setState(() {
+            _loading = false;
+            _error = _phoneError(error);
+          });
+        },
+      );
+    } catch (error) {
+      if (mounted && generation == _generation) {
+        setState(() {
+          _loading = false;
+          _error = _message(error);
         });
       }
     }
   }
 
-  String? _required(String? value, String label) =>
-      value == null || value.trim().isEmpty ? '$label is required.' : null;
+  Future<void> _finishRegistration({
+    int? generation,
+    PhoneAuthCredential? automaticCredential,
+  }) async {
+    if (_loading && automaticCredential == null) return;
+    final activeGeneration = generation ?? _generation;
+    if (automaticCredential == null &&
+        (_verificationId == null || _otp.text.trim().length != 6)) {
+      setState(() => _error = 'Enter the complete six-digit SMS code.');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      if (ref.read(parentDemoModeProvider)) {
+        if (_otp.text.trim() != parentDemoOtp) {
+          throw StateError(
+            'Use sample demo code $parentDemoOtp. No SMS was sent.',
+          );
+        }
+        if (!mounted || activeGeneration != _generation) return;
+        setState(() {
+          _loading = false;
+          _approved = true;
+        });
+        if (mounted) context.go('/parent-demo');
+        return;
+      }
+      await _service.verifyAndRegister(
+        studentName: _studentName.text,
+        rollNumber: _rollNumber.text,
+        smsCode: _otp.text,
+        automaticCredential: automaticCredential,
+      );
+      if (!mounted || activeGeneration != _generation) return;
+      setState(() {
+        _loading = false;
+        _approved = true;
+      });
+      await _service.cancel();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Parent phone verified and link approved. The Parent can now sign in.',
+            ),
+          ),
+        );
+        context.go('/student');
+      }
+    } on FirebaseAuthException catch (error) {
+      if (mounted && activeGeneration == _generation) {
+        setState(() {
+          _loading = false;
+          _error = _phoneError(error);
+        });
+      }
+    } on FirebaseFunctionsException catch (error) {
+      if (mounted && activeGeneration == _generation) {
+        setState(() {
+          _loading = false;
+          _error =
+              error.message ?? 'Parent linking failed. You can retry safely.';
+        });
+      }
+    } catch (error) {
+      if (mounted && activeGeneration == _generation) {
+        setState(() {
+          _loading = false;
+          _error = _message(error);
+        });
+      }
+    }
+  }
+
+  String _message(Object error) => error.toString().replaceFirst(
+    RegExp(r'^(Bad state|FormatException): '),
+    '',
+  );
+
+  String _phoneError(FirebaseAuthException error) => switch (error.code) {
+    'invalid-verification-code' =>
+      'That SMS code is incorrect. Check the code and try again.',
+    'session-expired' ||
+    'code-expired' => 'That SMS code expired. Request a new code.',
+    'network-request-failed' =>
+      'Network error. Check your connection and retry.',
+    'too-many-requests' || 'quota-exceeded' =>
+      'Too many attempts. Wait before requesting another code.',
+    'invalid-phone-number' => 'Enter a valid international phone number.',
+    _ => error.message ?? 'Phone verification failed. Please try again.',
+  };
 
   @override
   Widget build(BuildContext context) {
-    return _PortalPage(
-      title: 'Parent Registration',
-      subtitle:
-          "Associate your mobile number with your child's student account.",
-      child: Form(
-        key: _formKey,
+    final demoMode = ref.watch(parentDemoModeProvider);
+    final authState = ref.watch(authStateProvider);
+    final student = authState.valueOrNull?.user;
+    final isStudent =
+        authState.valueOrNull?.isAuthenticated == true &&
+        student?.role == UserRole.student;
+    if (authState.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!isStudent) {
+      return _PortalPage(
+        title: 'Parent Registration',
+        subtitle:
+            'A Student must sign in and approve access before a Parent link can be created.',
         child: Column(
           children: [
-            AppTextField(
-              label: 'Student Full Name',
-              controller: _studentName,
-              prefixIcon: Icons.person_outline,
-              validator: (v) => _required(v, 'Student full name'),
+            const Icon(
+              Icons.verified_user_outlined,
+              size: 42,
+              color: AppColors.primary,
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Student Roll Number',
-              controller: _rollNumber,
-              prefixIcon: Icons.badge_outlined,
-              validator: (v) => _required(v, 'Student roll number'),
+            const SizedBox(height: 12),
+            const Text(
+              'Sign in to the Student account for the student whose profile will be linked. The Parent will verify their own mobile number by SMS.',
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Department',
-              controller: _department,
-              prefixIcon: Icons.account_balance_outlined,
-              validator: (v) => _required(v, 'Department'),
-            ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Parent Registered Mobile Number',
-              controller: _parentPhone,
-              keyboardType: TextInputType.phone,
-              hintText: '+91 98765 43210',
-              prefixIcon: Icons.phone_outlined,
-              validator: (v) {
-                if (_required(v, 'Parent registered mobile number') != null) {
-                  return _required(v, 'Parent registered mobile number');
-                }
-                if (ParentAuthService.extractDigits(v!).length < 8) {
-                  return 'Enter a valid mobile number with at least 8 digits.';
-                }
-                return null;
-              },
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: const TextStyle(color: AppColors.danger),
-              ),
-            ],
-            const SizedBox(height: 20),
-            AppButton(
-              label: 'REGISTER',
-              isLoading: _isLoading,
-              onPressed: _submit,
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: () => context.go('/login'),
+              icon: const Icon(Icons.login),
+              label: const Text('Student Sign In'),
             ),
             TextButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('Already registered? Sign in'),
+              onPressed: () => context.go('/parent-login'),
+              child: const Text('Parent Sign In'),
             ),
           ],
         ),
+      );
+    }
+
+    return _PortalPage(
+      title: demoMode
+          ? (_approved ? 'Demo Steps Complete' : 'Parent Registration Demo')
+          : _approved
+          ? 'Parent Link Approved'
+          : 'Register Parent Access',
+      subtitle: demoMode
+          ? 'Try the Parent registration screens with sample steps and data. No phone verification or link is created.'
+          : _otpSent
+          ? 'Enter the OTP sent to the Parent mobile number to confirm their phone identity.'
+          : 'Verify the student profile, then have the Parent verify their phone. Student sign-in and Parent SMS verification are both required.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (demoMode) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                parentDemoDisclaimer,
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          TextButton.icon(
+            onPressed: () {
+              if (_otpSent) {
+                _generation++;
+                _resendTimer?.cancel();
+                unawaited(_service.cancel());
+                setState(() {
+                  _otpSent = false;
+                  _loading = false;
+                  _otp.clear();
+                  _error = null;
+                });
+              } else {
+                context.go('/student');
+              }
+            },
+            icon: const Icon(Icons.arrow_back),
+            label: Text(
+              _otpSent ? 'Back to details' : 'Back to Student Dashboard',
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (!_otpSent) ...[
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  AppTextField(
+                    label: 'Student full name',
+                    controller: _studentName,
+                    prefixIcon: Icons.person_outline,
+                    validator: _required,
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: 'Student roll number',
+                    controller: _rollNumber,
+                    prefixIcon: Icons.badge_outlined,
+                    validator: _required,
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: 'Parent mobile number',
+                    controller: _parentPhone,
+                    hintText: '+91 98765 43210',
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: Icons.phone_android_outlined,
+                    validator: _required,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            CheckboxListTile(
+              value: _consent,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              onChanged: _loading
+                  ? null
+                  : (value) => setState(() {
+                      _consent = value ?? false;
+                      _error = null;
+                    }),
+              title: const Text(
+                'I approve linking a Parent account to my Student profile.',
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Student: ${_studentDisplay ?? '${student!.name} • ${student.rollNumber}'}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text('Parent phone: ${_parentPhone.text.trim()}'),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: demoMode ? 'Sample demo code' : 'Six-digit SMS code',
+              controller: _otp,
+              keyboardType: TextInputType.number,
+              prefixIcon: Icons.password,
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
+            ),
+            if (demoMode) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Sample code: 123456. No SMS is sent and the phone is not verified.',
+              ),
+            ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _resendSeconds == 0 && !_loading
+                    ? () => _beginRegistration(resendToken: _resendToken)
+                    : null,
+                child: Text(
+                  _resendSeconds > 0
+                      ? 'Resend in ${_resendSeconds}s'
+                      : 'Resend code',
+                ),
+              ),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: const TextStyle(color: AppColors.danger)),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _loading
+                  ? null
+                  : _otpSent
+                  ? () => _finishRegistration()
+                  : () => _beginRegistration(),
+              icon: _loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _otpSent
+                          ? Icons.verified_user_outlined
+                          : Icons.sms_outlined,
+                    ),
+              label: Text(
+                _loading
+                    ? 'Please wait…'
+                    : _otpSent
+                    ? demoMode
+                          ? 'Continue Demo'
+                          : 'Verify OTP and Link Parent'
+                    : demoMode
+                    ? 'Simulate Student Check'
+                    : 'Verify Student and Send OTP',
+              ),
+            ),
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                unawaited(_service.cancel());
+                context.go('/login');
+              },
+              child: const Text('Cancel and return to sign in'),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'This field is required.' : null;
 }

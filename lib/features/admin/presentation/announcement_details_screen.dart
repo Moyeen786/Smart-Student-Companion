@@ -77,7 +77,13 @@ class AnnouncementDetailsScreen extends ConsumerWidget {
         runSpacing: 12,
         children: [
           OutlinedButton.icon(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/admin/announcements');
+              }
+            },
             icon: const Icon(Icons.arrow_back),
             label: const Text('BACK'),
           ),

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,8 +9,7 @@ class StudentNotes extends StatefulWidget {
 }
 
 class _StudentNotesState extends State<StudentNotes> {
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   String _selectedSubject = 'All';
 
@@ -86,8 +84,8 @@ class _StudentNotesState extends State<StudentNotes> {
           note['subject'].toString().toLowerCase().contains(query) ||
           note['type'].toString().toLowerCase().contains(query);
 
-      final matchesSubject = _selectedSubject == 'All' ||
-          note['subject'] == _selectedSubject;
+      final matchesSubject =
+          _selectedSubject == 'All' || note['subject'] == _selectedSubject;
 
       return matchesSearch && matchesSubject;
     }).toList();
@@ -122,10 +120,7 @@ class _StudentNotesState extends State<StudentNotes> {
         selectedIndex: 4,
         onDestinationSelected: _navigate,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.fact_check_outlined),
             label: 'Attendance',
@@ -168,10 +163,7 @@ class _StudentNotesState extends State<StudentNotes> {
                 children: [
                   const Text(
                     'Your learning space',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.blueGrey,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.blueGrey),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -311,7 +303,11 @@ class _StudentNotesState extends State<StudentNotes> {
 
     if (index == 4) return;
 
-    context.go(routes[index]);
+    if (index == routes.length - 1) {
+      context.push(routes[index]);
+    } else {
+      context.go(routes[index]);
+    }
   }
 
   void _showNoteDetails(Map<String, dynamic> note) {
@@ -320,9 +316,7 @@ class _StudentNotesState extends State<StudentNotes> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return SafeArea(
@@ -373,10 +367,7 @@ class _StudentNotesState extends State<StudentNotes> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  note['description'],
-                  style: const TextStyle(height: 1.6),
-                ),
+                Text(note['description'], style: const TextStyle(height: 1.6)),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -434,10 +425,7 @@ class _StudentNotesState extends State<StudentNotes> {
                           .map(
                             (s) => DropdownMenuItem(
                               value: s,
-                              child: Text(
-                                s,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: Text(s, overflow: TextOverflow.ellipsis),
                             ),
                           )
                           .toList(),
@@ -468,15 +456,12 @@ class _StudentNotesState extends State<StudentNotes> {
                 ElevatedButton(
                   onPressed: () {
                     final title = titleController.text.trim();
-                    final description =
-                        descriptionController.text.trim();
+                    final description = descriptionController.text.trim();
 
                     if (title.isEmpty || description.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                            'Enter a title and note content.',
-                          ),
+                          content: Text('Enter a title and note content.'),
                         ),
                       );
                       return;
@@ -557,10 +542,7 @@ class _NotesSummaryCard extends StatelessWidget {
                 ),
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.blueGrey,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
                 ),
               ],
             ),
@@ -572,10 +554,7 @@ class _NotesSummaryCard extends StatelessWidget {
 }
 
 class _NoteCard extends StatelessWidget {
-  const _NoteCard({
-    required this.note,
-    required this.onTap,
-  });
+  const _NoteCard({required this.note, required this.onTap});
 
   final Map<String, dynamic> note;
   final VoidCallback onTap;
@@ -607,10 +586,7 @@ class _NoteCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  note['icon'] as IconData,
-                  color: color,
-                ),
+                child: Icon(note['icon'] as IconData, color: color),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -661,10 +637,7 @@ class _NoteCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right,
-                color: Colors.blueGrey,
-              ),
+              const Icon(Icons.chevron_right, color: Colors.blueGrey),
             ],
           ),
         ),
@@ -681,10 +654,7 @@ class _Tag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFFEAF0FF),
         borderRadius: BorderRadius.circular(20),

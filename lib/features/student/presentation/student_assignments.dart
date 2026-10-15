@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,13 +5,11 @@ class StudentAssignments extends StatefulWidget {
   const StudentAssignments({super.key});
 
   @override
-  State<StudentAssignments> createState() =>
-      _StudentAssignmentsState();
+  State<StudentAssignments> createState() => _StudentAssignmentsState();
 }
 
 class _StudentAssignmentsState extends State<StudentAssignments> {
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   String _filter = 'All';
 
@@ -31,8 +28,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
     {
       'title': 'Database Design',
       'subject': 'Database Management Systems',
-      'description':
-          'Design an ER diagram for a student management system.',
+      'description': 'Design an ER diagram for a student management system.',
       'due': '20 Oct 2026',
       'status': 'Pending',
       'icon': Icons.storage,
@@ -41,8 +37,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
     {
       'title': 'Network Programming',
       'subject': 'Computer Networks',
-      'description':
-          'Implement a client-server program using TCP sockets.',
+      'description': 'Implement a client-server program using TCP sockets.',
       'due': '15 Oct 2026',
       'status': 'Submitted',
       'icon': Icons.lan,
@@ -68,20 +63,17 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
           assignment['title'].toString().toLowerCase().contains(query) ||
           assignment['subject'].toString().toLowerCase().contains(query);
 
-      final matchesFilter =
-          _filter == 'All' || assignment['status'] == _filter;
+      final matchesFilter = _filter == 'All' || assignment['status'] == _filter;
 
       return matchesSearch && matchesFilter;
     }).toList();
   }
 
-  int get _pendingCount => _assignments
-      .where((a) => a['status'] == 'Pending')
-      .length;
+  int get _pendingCount =>
+      _assignments.where((a) => a['status'] == 'Pending').length;
 
-  int get _submittedCount => _assignments
-      .where((a) => a['status'] == 'Submitted')
-      .length;
+  int get _submittedCount =>
+      _assignments.where((a) => a['status'] == 'Submitted').length;
 
   @override
   void dispose() {
@@ -112,10 +104,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
         selectedIndex: 3,
         onDestinationSelected: _navigate,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.fact_check_outlined),
             label: 'Attendance',
@@ -151,10 +140,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
                 children: [
                   const Text(
                     'Manage your academic work',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.blueGrey,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.blueGrey),
                   ),
                   const SizedBox(height: 18),
                   Row(
@@ -302,7 +288,11 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
 
     if (index == 3) return;
 
-    context.go(routes[index]);
+    if (index == routes.length - 1) {
+      context.push(routes[index]);
+    } else {
+      context.go(routes[index]);
+    }
   }
 
   void _showDetails(Map<String, dynamic> assignment) {
@@ -311,9 +301,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         final submitted = assignment['status'] == 'Submitted';
@@ -359,10 +347,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
                 const SizedBox(height: 8),
                 Text(
                   assignment['description'],
-                  style: const TextStyle(
-                    height: 1.5,
-                    color: Colors.blueGrey,
-                  ),
+                  style: const TextStyle(height: 1.5, color: Colors.blueGrey),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -410,10 +395,7 @@ class _StudentAssignmentsState extends State<StudentAssignments> {
                 const Text(
                   'Demo only: this status is not saved to Firebase.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blueGrey,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.blueGrey),
                 ),
               ],
             ),
@@ -461,10 +443,7 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.blueGrey,
-            ),
+            style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
           ),
         ],
       ),
@@ -473,10 +452,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _AssignmentCard extends StatelessWidget {
-  const _AssignmentCard({
-    required this.assignment,
-    required this.onTap,
-  });
+  const _AssignmentCard({required this.assignment, required this.onTap});
 
   final Map<String, dynamic> assignment;
   final VoidCallback onTap;
@@ -510,10 +486,7 @@ class _AssignmentCard extends StatelessWidget {
                       color: color.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(13),
                     ),
-                    child: Icon(
-                      assignment['icon'] as IconData,
-                      color: color,
-                    ),
+                    child: Icon(assignment['icon'] as IconData, color: color),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

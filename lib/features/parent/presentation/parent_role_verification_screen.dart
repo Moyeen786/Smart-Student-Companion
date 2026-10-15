@@ -12,17 +12,25 @@ class ParentRoleVerificationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final candidateStudent = ref.watch(parentCandidateStudentProvider) ??
-        ref.watch(authStateProvider).valueOrNull?.user;
+    final authState = ref.watch(authStateProvider).valueOrNull;
+    final authenticatedUser = authState?.isAuthenticated == true
+        ? authState?.user
+        : null;
+    final cachedCandidate = ref.watch(parentCandidateStudentProvider);
+    final candidateStudent =
+        authenticatedUser != null &&
+            authenticatedUser.role == UserRole.student &&
+            (cachedCandidate == null ||
+                cachedCandidate.uid == authenticatedUser.uid)
+        ? authenticatedUser
+        : null;
 
     // If candidate student is somehow null, redirect back to login
     if (candidateStudent == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.go('/login');
       });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -125,12 +133,9 @@ class ParentRoleVerificationScreen extends ConsumerWidget {
                     badge: 'Student Flow',
                     onTap: () {
                       // Student option: authenticate and navigate to existing Student Dashboard
-                      final studentUser = candidateStudent.copyWith(
-                        role: UserRole.student,
-                      );
                       ref
                           .read(authStateProvider.notifier)
-                          .setAuthenticatedUser(studentUser);
+                          .setAuthenticatedUser(candidateStudent);
                       context.go('/student');
                     },
                   ),
@@ -145,6 +150,14 @@ class ParentRoleVerificationScreen extends ConsumerWidget {
                     onTap: () {
                       context.go('/parent-phone-verify');
                     },
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => context.go('/register/parent'),
+                      icon: const Icon(Icons.person_add_alt_1_outlined),
+                      label: const Text('Approve and register a Parent phone'),
+                    ),
                   ),
                 ],
               ),
@@ -204,7 +217,9 @@ class _IdentityCard extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 32,
-                  color: isHighlight ? AppColors.primary : AppColors.textPrimary,
+                  color: isHighlight
+                      ? AppColors.primary
+                      : AppColors.textPrimary,
                 ),
               ),
               const SizedBox(width: 16),
@@ -217,9 +232,7 @@ class _IdentityCard extends StatelessWidget {
                         Text(
                           title,
                           style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         if (badge != null) ...[
                           const SizedBox(width: 8),

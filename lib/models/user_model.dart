@@ -95,11 +95,17 @@ class UserModel {
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
+    final rawRole = map['role'];
+    if (rawRole is! String ||
+        !const {'student', 'teacher', 'faculty', 'parent', 'admin'}
+            .contains(rawRole)) {
+      throw FormatException('The user profile has an invalid role.');
+    }
     return UserModel(
       uid: map['uid'] as String? ?? '',
       name: map['name'] as String? ?? '',
       email: map['email'] as String? ?? '',
-      role: UserRoleExtension.fromFirestoreValue(map['role'] as String?),
+      role: UserRoleExtension.fromFirestoreValue(rawRole),
       department: map['department'] as String? ?? '',
       semester: map['semester'] as int? ?? 0,
       createdAt: map['createdAt'] is DateTime
@@ -111,8 +117,8 @@ class UserModel {
       parentPhone:
           map['parentPhone'] as String? ?? map['guardianPhone'] as String? ?? '',
       childStudentId: map['childStudentId'] as String? ?? '',
-      cgpa: (map['cgpa'] as num?)?.toDouble() ?? 8.45,
-      overallAttendance: (map['overallAttendance'] as num?)?.toDouble() ?? 91.5,
+      cgpa: (map['cgpa'] as num?)?.toDouble() ?? 0,
+      overallAttendance: (map['overallAttendance'] as num?)?.toDouble() ?? 0,
     );
   }
 

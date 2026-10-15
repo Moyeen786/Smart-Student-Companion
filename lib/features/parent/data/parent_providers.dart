@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_student_companion/features/parent/data/parent_models.dart';
 import 'package:smart_student_companion/models/user_model.dart';
+import 'package:smart_student_companion/features/parent/data/parent_demo_mode.dart';
 
 /// Holds the candidate student account identified after login.
 final parentCandidateStudentProvider = StateProvider<UserModel?>((ref) => null);
@@ -17,17 +18,73 @@ final parentVerificationIdProvider = StateProvider<String?>((ref) => null);
 /// Holds the Firebase Phone Auth resend token.
 final parentResendTokenProvider = StateProvider<int?>((ref) => null);
 
-/// Holds any dynamically generated OTP code if SMS provider requires fallback.
-final parentGeneratedOtpProvider = StateProvider<String>((ref) => '');
-
 /// Holds the active child's academic data summary for the parent dashboard.
-final parentActiveChildSummaryProvider =
-    StateProvider<ChildAcademicSummary?>((ref) => null);
+final parentActiveChildSummaryProvider = StateProvider<ChildAcademicSummary?>(
+  (ref) => null,
+);
+
+/// Loads the linked student's actual profile. Firestore rules validate the
+/// parent claim and child UID on this read.
+final parentChildProfileProvider = FutureProvider<ChildAcademicSummary>((
+  ref,
+) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) throw StateError('Sign in to your Parent account first.');
+  final token = await user.getIdTokenResult(true);
+  final claims = token.claims ?? const <String, dynamic>{};
+  final childUid = claims['childStudentId'] as String? ?? '';
+  if (claims['role'] != 'parent' || childUid.isEmpty) {
+    throw StateError('This Parent account has no trusted child link.');
+  }
+  final snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(childUid)
+      .get();
+  final data = snapshot.data();
+  if (data == null || data['role'] != 'student') {
+    throw StateError('The linked student profile is unavailable.');
+  }
+  final student = UserModel.fromMap({...data, 'uid': snapshot.id});
+  return ChildAcademicSummary(
+    student: student,
+    cgpa: student.cgpa,
+    overallAttendance: student.overallAttendance,
+    totalClasses: 0,
+    attendedClasses: 0,
+    attendanceStatus: '',
+    subjectAttendances: const [],
+    subjectPerformances: const [],
+    upcomingExams: const [],
+    upcomingAssignments: const [],
+    smartInsights: const [],
+    announcements: const [],
+    recentActivities: const [],
+  );
+});
+
+/// Fictional dashboard data for the isolated development demo route only.
+/// Never use this provider to satisfy authentication, claims, or Firestore access.
+final parentDemoSummaryProvider = Provider<ChildAcademicSummary>((ref) {
+  if (!ref.watch(parentDemoModeProvider)) {
+    throw StateError('Parent demo mode is disabled.');
+  }
+  final sampleStudent = UserModel(
+    uid: 'demo-student-only',
+    name: 'Aarav Sample',
+    email: 'aarav.sample@example.invalid',
+    role: UserRole.student,
+    department: 'Computer Science',
+    semester: 5,
+    createdAt: DateTime.utc(2025, 1, 1),
+    rollNumber: 'DEMO-5001',
+  );
+  return ChildAcademicSummary.generateForStudent(sampleStudent);
+});
 
 class ParentAuthService {
   ParentAuthService({FirebaseFirestore? firestore, FirebaseAuth? auth})
-      : _customFirestore = firestore,
-        _customAuth = auth;
+    : _customFirestore = firestore,
+      _customAuth = auth;
 
   final FirebaseFirestore? _customFirestore;
   final FirebaseAuth? _customAuth;
@@ -64,170 +121,35 @@ class ParentAuthService {
     return '+$digits';
   }
 
-  static final Map<String, Map<String, String>> _inMemoryRegistrations = {};
-
-  /// Store parent registration details in Firebase/Firestore
-  /// and associate with the student account without creating a separate student account.
+  /// This client has no trusted parent-link provisioning endpoint.
+  /// Never report a client-side registration as persisted when no write is allowed.
   Future<void> registerParentDetails({
     required String studentName,
     required String rollNumber,
     required String department,
     required String parentPhone,
   }) async {
-    final cleanRoll = rollNumber.trim().toUpperCase();
-    final cleanPhone = parentPhone.trim();
-
-    // Cache locally for immediate reliability
-    _inMemoryRegistrations[cleanRoll] = {
-      'studentName': studentName.trim(),
-      'rollNumber': cleanRoll,
-      'department': department.trim(),
-      'parentPhone': cleanPhone,
-    };
-    final phoneDigits = extractDigits(cleanPhone);
-    if (phoneDigits.isNotEmpty) {
-      _inMemoryRegistrations[phoneDigits] = {
-        'studentName': studentName.trim(),
-        'rollNumber': cleanRoll,
-        'department': department.trim(),
-        'parentPhone': cleanPhone,
-      };
-    }
-
-    try {
-      // 1. Look for existing student by rollNumber in Firestore users
-      final snap = await _firestore
-          .collection('users')
-          .where('rollNumber', isEqualTo: cleanRoll)
-          .get();
-
-      if (snap.docs.isNotEmpty) {
-        // Update existing student document
-        for (final doc in snap.docs) {
-          await doc.reference.update({
-            'parentPhone': cleanPhone,
-            'parentMobile': cleanPhone,
-            'parentName': 'Parent of $studentName',
-            'name': studentName.trim(),
-            'department': department.trim(),
-          });
-        }
-      } else {
-        // Create/set student document with parent details
-        final docId =
-            'student-${cleanRoll.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}';
-        await _firestore.collection('users').doc(docId).set({
-          'uid': docId,
-          'name': studentName.trim(),
-          'rollNumber': cleanRoll,
-          'department': department.trim(),
-          'semester': 5,
-          'role': 'student',
-          'parentPhone': cleanPhone,
-          'parentMobile': cleanPhone,
-          'parentName': 'Parent of $studentName',
-          'createdAt': DateTime.now(),
-        }, SetOptions(merge: true));
-      }
-
-      // Also persist in parent_registrations collection for fast verification
-      await _firestore.collection('parent_registrations').doc(cleanRoll).set({
-        'studentName': studentName.trim(),
-        'rollNumber': cleanRoll,
-        'department': department.trim(),
-        'parentPhone': cleanPhone,
-        'parentMobile': cleanPhone,
-        'updatedAt': DateTime.now(),
-      }, SetOptions(merge: true));
-    } catch (_) {
-      // Allow seamless operation
-    }
+    throw StateError(
+      'Parent linking is not configured for client-side registration. '
+      'Ask the institution to provision the verified parent account and child link.',
+    );
   }
 
-  /// Verifies entered parent mobile number against Firebase/Firestore for the given student.
+  /// Checks the phone stored on the authenticated student's own profile.
   Future<bool> verifyParentMobileAgainstFirestore({
-    required String rollNumber,
+    required String studentUid,
     required String inputPhone,
-    String? studentUid,
-    String? candidateParentPhone,
   }) async {
-    final cleanRoll = rollNumber.trim().toUpperCase();
-    final inputDigits = extractDigits(inputPhone);
-
-    // 0. Check in-memory registrations
-    if (_inMemoryRegistrations.containsKey(cleanRoll)) {
-      final stored = _inMemoryRegistrations[cleanRoll]?['parentPhone'] ?? '';
-      if (phoneMatches(stored, inputPhone)) return true;
+    if (_auth.currentUser?.uid != studentUid) {
+      throw StateError(
+        'Sign in to the student account before parent verification.',
+      );
     }
-    if (_inMemoryRegistrations.containsKey(inputDigits)) {
-      return true;
-    }
-    for (final reg in _inMemoryRegistrations.values) {
-      final stored = reg['parentPhone'] ?? '';
-      if (phoneMatches(stored, inputPhone)) return true;
-    }
-
-    // Check candidate parentPhone if provided
-    if (candidateParentPhone != null && candidateParentPhone.isNotEmpty) {
-      if (phoneMatches(candidateParentPhone, inputPhone)) return true;
-    }
-
-    try {
-      // 1. Check parent_registrations collection
-      if (cleanRoll.isNotEmpty) {
-        final regDoc =
-            await _firestore.collection('parent_registrations').doc(cleanRoll).get();
-        if (regDoc.exists && regDoc.data() != null) {
-          final data = regDoc.data()!;
-          final stored = (data['parentPhone'] ?? data['parentMobile'] ?? '') as String;
-          if (phoneMatches(stored, inputPhone)) return true;
-        }
-      }
-
-      // 2. Check student document by studentUid if provided
-      if (studentUid != null && studentUid.isNotEmpty) {
-        final userDoc = await _firestore.collection('users').doc(studentUid).get();
-        if (userDoc.exists && userDoc.data() != null) {
-          final data = userDoc.data()!;
-          final stored = (data['parentPhone'] ?? data['parentMobile'] ?? '') as String;
-          if (phoneMatches(stored, inputPhone)) return true;
-        }
-      }
-
-      // 3. Check users collection by rollNumber
-      if (cleanRoll.isNotEmpty) {
-        final snap = await _firestore
-            .collection('users')
-            .where('rollNumber', isEqualTo: cleanRoll)
-            .get();
-
-        for (final doc in snap.docs) {
-          final data = doc.data();
-          final stored = (data['parentPhone'] ?? data['parentMobile'] ?? '') as String;
-          if (phoneMatches(stored, inputPhone)) return true;
-        }
-      }
-
-      // 4. Check all parent_registrations docs for phone match
-      final regSnap =
-          await _firestore.collection('parent_registrations').limit(50).get();
-      for (final doc in regSnap.docs) {
-        final data = doc.data();
-        final stored = (data['parentPhone'] ?? data['parentMobile'] ?? '') as String;
-        if (phoneMatches(stored, inputPhone)) return true;
-      }
-
-      // 5. Check if any student account has this parentPhone
-      final phoneSnap = await _firestore
-          .collection('users')
-          .where('parentPhone', isEqualTo: inputPhone.trim())
-          .get();
-      if (phoneSnap.docs.isNotEmpty) return true;
-    } catch (_) {
-      // In case of offline/network exception, allow format-checked demo if registered
-    }
-
-    return false;
+    final user = await _firestore.collection('users').doc(studentUid).get();
+    if (!user.exists || user.data()?['role'] != 'student') return false;
+    final registeredPhone = user.data()?['parentPhone'] as String? ?? '';
+    return registeredPhone.isNotEmpty &&
+        phoneMatches(registeredPhone, inputPhone);
   }
 
   /// Sends OTP using Firebase Phone Authentication.
@@ -235,6 +157,8 @@ class ParentAuthService {
     required String phoneNumber,
     required void Function(String verificationId, int? resendToken) onCodeSent,
     required void Function(String error) onError,
+    required void Function(PhoneAuthCredential credential) onAutoVerified,
+    required void Function(String verificationId) onTimeout,
     int? forceResendingToken,
   }) async {
     final formatted = formatToE164(phoneNumber);
@@ -245,7 +169,7 @@ class ParentAuthService {
         forceResendingToken: forceResendingToken,
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // Automatic SMS code retrieval handled by system
+          onAutoVerified(credential);
         },
         verificationFailed: (FirebaseAuthException e) {
           onError(e.message ?? 'Firebase Phone Authentication failed.');
@@ -254,7 +178,7 @@ class ParentAuthService {
           onCodeSent(verificationId, resendToken);
         },
         codeAutoRetrievalTimeout: (String verificationId) {
-          // Auto retrieval timeout
+          onTimeout(verificationId);
         },
       );
     } catch (e) {
@@ -262,47 +186,77 @@ class ParentAuthService {
     }
   }
 
-  /// Verify entered OTP against Firebase Phone Auth credential.
-  Future<bool> verifyOtpCredential({
+  /// Sign in with the verified phone and require a trusted Parent profile link.
+  Future<UserModel> signInParentWithOtp({
     required String otp,
-    required String? verificationId,
-    String? fallbackOtp,
+    required String verificationId,
+    String? studentUid,
+    required String verifiedPhone,
+    PhoneAuthCredential? automaticCredential,
   }) async {
     final cleaned = otp.trim();
-    if (cleaned.length != 6) return false;
+    if (automaticCredential == null &&
+        (cleaned.length != 6 || verificationId.isEmpty)) {
+      throw StateError('Enter the six-digit code sent by Firebase.');
+    }
 
-    if (verificationId != null && verificationId.isNotEmpty) {
-      try {
-        final credential = PhoneAuthProvider.credential(
+    final phoneCredential =
+        automaticCredential ??
+        PhoneAuthProvider.credential(
           verificationId: verificationId,
           smsCode: cleaned,
         );
-        await _auth.signInWithCredential(credential);
-        return true;
-      } catch (_) {
-        // If Firebase Auth credential verification fails
-        if (fallbackOtp != null &&
-            fallbackOtp.isNotEmpty &&
-            (cleaned == fallbackOtp || cleaned == '123456')) {
-          return true;
+    final result = await _auth.signInWithCredential(phoneCredential);
+    final firebaseUser = result.user;
+    if (firebaseUser == null) {
+      throw StateError('Firebase did not return a verified phone account.');
+    }
+
+    late final DocumentSnapshot<Map<String, dynamic>> profile;
+    try {
+      profile = await _firestore
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get();
+    } catch (_) {
+      await _auth.signOut();
+      rethrow;
+    }
+    final data = profile.data();
+    late final Map<String, dynamic> claims;
+    try {
+      claims =
+          (await firebaseUser.getIdTokenResult(true)).claims ??
+          const <String, dynamic>{};
+    } catch (_) {
+      await _auth.signOut();
+      rethrow;
+    }
+    final linkedStudentId = data?['childStudentId'] as String? ?? '';
+    if (data == null ||
+        data['role'] != 'parent' ||
+        linkedStudentId.isEmpty ||
+        (studentUid != null && linkedStudentId != studentUid) ||
+        claims['role'] != 'parent' ||
+        claims['childStudentId'] != linkedStudentId ||
+        !phoneMatches(firebaseUser.phoneNumber ?? '', verifiedPhone)) {
+      try {
+        if (result.additionalUserInfo?.isNewUser == true) {
+          await firebaseUser.delete();
         }
-        return cleaned == '123456';
+      } finally {
+        if (_auth.currentUser?.uid == firebaseUser.uid) {
+          await _auth.signOut();
+        }
       }
+      throw StateError(
+        'This verified phone is not linked to this student by the institution.',
+      );
     }
-
-    if (fallbackOtp != null && fallbackOtp.isNotEmpty) {
-      return cleaned == fallbackOtp || cleaned == '123456';
-    }
-
-    return cleaned == '123456';
+    return UserModel.fromMap({...data, 'uid': firebaseUser.uid});
   }
 
-  /// Direct OTP verification helper for testing and fallback logic.
-  bool verifyOtp({required String inputOtp, required String expectedOtp}) {
-    final cleaned = inputOtp.trim();
-    if (cleaned.length != 6) return false;
-    return cleaned == expectedOtp.trim() || cleaned == '123456';
-  }
+  Future<void> cancelPhoneSignIn() => _auth.signOut();
 
   /// Look up a student by Student ID (roll number), university email, or document UID.
   Future<UserModel> lookupStudentAccount(String identifier) async {
@@ -311,69 +265,43 @@ class ParentAuthService {
       throw Exception('Please enter a valid Student ID or account identifier.');
     }
 
-    try {
-      final rollSnap = await _firestore
-          .collection('users')
-          .where('role', isEqualTo: 'student')
-          .where('rollNumber', isEqualTo: query)
-          .limit(1)
-          .get();
+    final rollSnap = await _firestore
+        .collection('users')
+        .where('role', isEqualTo: 'student')
+        .where('rollNumber', isEqualTo: query)
+        .limit(1)
+        .get();
 
-      if (rollSnap.docs.isNotEmpty) {
-        final data = rollSnap.docs.first.data();
-        return UserModel.fromMap({
-          ...data,
-          'uid': rollSnap.docs.first.id,
-          'rollNumber': data['rollNumber'] ?? query,
-        });
-      }
+    if (rollSnap.docs.isNotEmpty) {
+      final data = rollSnap.docs.first.data();
+      return UserModel.fromMap({
+        ...data,
+        'uid': rollSnap.docs.first.id,
+        'rollNumber': data['rollNumber'] ?? query,
+      });
+    }
 
-      final emailSnap = await _firestore
-          .collection('users')
-          .where('role', isEqualTo: 'student')
-          .where('email', isEqualTo: query.toLowerCase())
-          .limit(1)
-          .get();
+    final emailSnap = await _firestore
+        .collection('users')
+        .where('role', isEqualTo: 'student')
+        .where('email', isEqualTo: query.toLowerCase())
+        .limit(1)
+        .get();
 
-      if (emailSnap.docs.isNotEmpty) {
-        final data = emailSnap.docs.first.data();
-        return UserModel.fromMap({
-          ...data,
-          'uid': emailSnap.docs.first.id,
-          'rollNumber': data['rollNumber'] ?? query,
-        });
-      }
+    if (emailSnap.docs.isNotEmpty) {
+      final data = emailSnap.docs.first.data();
+      return UserModel.fromMap({
+        ...data,
+        'uid': emailSnap.docs.first.id,
+        'rollNumber': data['rollNumber'] ?? query,
+      });
+    }
 
-      final docSnap = await _firestore.collection('users').doc(query).get();
-      if (docSnap.exists && docSnap.data() != null) {
-        final data = docSnap.data()!;
-        return UserModel.fromMap({
-          ...data,
-          'uid': docSnap.id,
-          'rollNumber': data['rollNumber'] ?? query,
-        });
-      }
-    } catch (_) {}
-
-    return UserModel(
-      uid: 'student-${query.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}',
-      name: 'Riya Sharma',
-      email: '${query.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}@campus.edu',
-      role: UserRole.student,
-      department: 'Computer Science and Engineering',
-      semester: 5,
-      rollNumber: query.toUpperCase(),
-      parentName: 'Sanjay Sharma',
-      parentPhone: '+91 98765 43210',
-      cgpa: 8.45,
-      overallAttendance: 89.4,
-    );
-  }
-
-  /// Generates a realistic 6-digit verification code.
-  String generateOtp() {
-    final random = Random();
-    return (100000 + random.nextInt(900000)).toString();
+    final docSnap = await _firestore.collection('users').doc(query).get();
+    if (docSnap.exists && docSnap.data()?['role'] == 'student') {
+      return UserModel.fromMap({...docSnap.data()!, 'uid': docSnap.id});
+    }
+    throw StateError('No student account was found for that identifier.');
   }
 
   /// Mask a phone number for privacy display (e.g. +91 98•••• ••10).

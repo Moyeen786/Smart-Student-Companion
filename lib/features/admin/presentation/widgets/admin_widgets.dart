@@ -260,8 +260,10 @@ class AdminSidebar extends ConsumerWidget {
           FilledButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              await ref.read(authStateProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
+              final loggedOut = await ref
+                  .read(authStateProvider.notifier)
+                  .logout();
+              if (loggedOut && context.mounted) context.go('/login');
             },
             child: const Text('Logout'),
           ),
@@ -406,8 +408,8 @@ class AdminHeader extends ConsumerWidget {
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    await ref.read(authStateProvider.notifier).logout();
-    if (context.mounted) context.go('/login');
+    final loggedOut = await ref.read(authStateProvider.notifier).logout();
+    if (loggedOut && context.mounted) context.go('/login');
   }
 
   void _showNotifications(BuildContext context, WidgetRef ref) {
@@ -484,17 +486,26 @@ class AdminStatCard extends StatelessWidget {
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textSecondary,
-                letterSpacing: .6,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 7, right: 8),
+                child: Text(
+                  label.toUpperCase(),
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textSecondary,
+                    letterSpacing: .6,
+                  ),
+                ),
               ),
             ),
             Container(
@@ -507,7 +518,7 @@ class AdminStatCard extends StatelessWidget {
             ),
           ],
         ),
-        const Spacer(),
+        const SizedBox(height: 8),
         Text(
           value,
           style: const TextStyle(
@@ -519,6 +530,9 @@ class AdminStatCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           detail,
+          softWrap: true,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 11,
             color: color,

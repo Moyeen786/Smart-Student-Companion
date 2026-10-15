@@ -55,6 +55,14 @@ class AccountCreatedScreen extends StatelessWidget {
                         label: 'GO TO LOGIN',
                         onPressed: () => context.go('/login'),
                       ),
+                      if (role == UserRole.student) ...[
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: () => context.go('/register/parent'),
+                          icon: const Icon(Icons.family_restroom_outlined),
+                          label: const Text('SET UP PARENT ACCESS'),
+                        ),
+                      ],
                     ],
                   ),
                 ),

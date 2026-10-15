@@ -6,10 +6,8 @@ import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_button.dart';
 import 'package:smart_student_companion/core/widgets/app_card.dart';
 import 'package:smart_student_companion/core/widgets/section_header.dart';
-import 'package:smart_student_companion/features/parent/data/parent_models.dart';
 import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_dashboard.dart';
-import 'package:smart_student_companion/models/user_model.dart';
 
 class ParentProfileScreen extends ConsumerWidget {
   const ParentProfileScreen({super.key});
@@ -19,39 +17,48 @@ class ParentProfileScreen extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     final user = authState.valueOrNull?.user;
 
-    final summary =
-        ref.watch(parentActiveChildSummaryProvider) ??
-        ChildAcademicSummary.generateForStudent(
-          user ??
-              const UserModel(
-                uid: 'demo',
-                name: 'Student Account',
-                email: 'student@campus.edu',
-                role: UserRole.student,
-                department: 'Computer Science and Engineering',
-                semester: 5,
-                rollNumber: 'CS2023001',
-              ),
-        );
+    final summary = ref.watch(parentActiveChildSummaryProvider);
+
+    if (summary == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Parent Profile'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/parent'),
+          ),
+        ),
+        bottomNavigationBar: const ParentBottomNav(currentIndex: 3),
+        body: const SafeArea(child: ParentAcademicDataUnavailable()),
+      );
+    }
 
     final student = summary.student;
     final parentPhone = user?.parentPhone.isNotEmpty == true
         ? user!.parentPhone
-        : '+91 98765 43210';
+        : 'Verified phone number';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Parent Profile'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/parent'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/parent');
+            }
+          },
         ),
         actions: [
           IconButton(
             tooltip: 'Sign out',
             onPressed: () async {
-              await ref.read(authStateProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
+              final loggedOut = await ref
+                  .read(authStateProvider.notifier)
+                  .logout();
+              if (loggedOut && context.mounted) context.go('/login');
             },
             icon: const Icon(Icons.logout_outlined),
           ),
@@ -157,7 +164,8 @@ class ParentProfileScreen extends ConsumerWidget {
                   const Divider(height: 1),
                   _InfoRow(
                     label: 'Current Semester',
-                    value: 'Semester ${student.semester > 0 ? student.semester : 5}',
+                    value:
+                        'Semester ${student.semester > 0 ? student.semester : 5}',
                     icon: Icons.calendar_month_outlined,
                   ),
                   const Divider(height: 1),
@@ -299,8 +307,10 @@ class ParentProfileScreen extends ConsumerWidget {
             AppButton(
               label: 'LOG OUT OF PARENT ACCESS',
               onPressed: () async {
-                await ref.read(authStateProvider.notifier).logout();
-                if (context.mounted) context.go('/login');
+                final loggedOut = await ref
+                    .read(authStateProvider.notifier)
+                    .logout();
+                if (loggedOut && context.mounted) context.go('/login');
               },
             ),
           ],

@@ -7,7 +7,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() &&
+      // Set only by a trusted Firebase Admin SDK provisioning process.
+      return signedIn() && request.auth.token.admin == true &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -17,6 +18,31 @@ service cloud.firestore {
           in ['student', 'faculty'];
     }
 
+    function isParentOf(userId) {
+      return signedIn() && request.auth.token.role == 'parent' &&
+        request.auth.token.childStudentId == userId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.childStudentId == userId;
+    }
+
+    function canReadAnnouncement() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let role = profile.role == 'parent'
+        ? (request.auth.token.role == 'parent' ? 'parent' : 'untrusted')
+        : profile.role;
+      let audience = resource.data.audience;
+      return resource.data.status == 'published' && (
+        audience == 'allUsers' ||
+        (audience == 'students' && role == 'student') ||
+        (audience == 'faculty' && role == 'faculty') ||
+        (audience == 'parents' && role == 'parent') ||
+        (audience == 'studentsAndFaculty' && role in ['student', 'faculty']) ||
+        (audience == 'specificDepartment' &&
+          resource.data.keys().hasAny(['department']) &&
+          profile.department == resource.data.department)
+      );
+    }
+
     function isSelf(userId) {
       return signedIn() && request.auth.uid == userId;
     }
@@ -24,16 +50,26 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if isSelf(userId) &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.role in ['student', 'faculty', 'parent', 'admin'];
-      allow read: if isSelf(userId) || isAdmin();
+        request.resource.data.role in ['student', 'faculty'] &&
+        request.resource.data.keys().hasOnly([
+          'uid', 'name', 'email', 'role', 'department', 'semester',
+          'createdAt', 'rollNumber'
+        ]);
+      allow read: if isSelf(userId) || isAdmin() || isParentOf(userId);
       allow update: if isAdmin() || (isSelf(userId) &&
         request.resource.data.uid == resource.data.uid &&
-        request.resource.data.role == resource.data.role);
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'email', 'department', 'semester', 'rollNumber',
+          'fcmTokens', 'notificationPermissionRequested',
+          'notificationPermission', 'notificationPermissionUpdatedAt',
+          'notificationTokenUpdatedAt'
+        ]));
       allow delete: if isAdmin();
     }
 
     match /announcements/{announcementId} {
-      allow read: if signedIn();
+      allow read: if isAdmin() || (signedIn() && canReadAnnouncement());
       allow create, update, delete: if isAdmin();
     }
 
@@ -58,7 +94,7 @@ service cloud.firestore {
     }
 
     match /lost_found/{itemId} {
-      allow read: if isAdmin() || (signedIn() &&
+      allow read: if isAdmin() || (isStudentOrFaculty() &&
         (resource.data.status == 'approved' ||
           resource.data.reportedByUserId == request.auth.uid));
       allow create: if isAdmin() || (isStudentOrFaculty() &&

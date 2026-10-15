@@ -1,35 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_card.dart';
 import 'package:smart_student_companion/core/widgets/section_header.dart';
-import 'package:smart_student_companion/features/parent/data/parent_models.dart';
 import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_dashboard.dart';
-import 'package:smart_student_companion/models/user_model.dart';
 
 class ChildAttendance extends ConsumerWidget {
   const ChildAttendance({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authStateProvider).valueOrNull?.user;
-    final summary =
-        ref.watch(parentActiveChildSummaryProvider) ??
-        ChildAcademicSummary.generateForStudent(
-          user ??
-              const UserModel(
-                uid: 'demo',
-                name: 'Student Account',
-                email: 'student@campus.edu',
-                role: UserRole.student,
-                department: 'Computer Science and Engineering',
-                semester: 5,
-                rollNumber: 'CS2023001',
-              ),
-        );
+    final summary = ref.watch(parentActiveChildSummaryProvider);
+
+    if (summary == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Child Attendance'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/parent'),
+          ),
+        ),
+        bottomNavigationBar: const ParentBottomNav(currentIndex: 1),
+        body: const SafeArea(child: ParentAcademicDataUnavailable()),
+      );
+    }
 
     final isSafe = summary.overallAttendance >= 75;
 

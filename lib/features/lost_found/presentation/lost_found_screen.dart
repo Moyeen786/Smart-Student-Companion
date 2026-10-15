@@ -39,8 +39,10 @@ class _LostFoundScreenState extends ConsumerState<LostFoundScreen> {
           IconButton(
             tooltip: 'Sign out',
             onPressed: () async {
-              await ref.read(authStateProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
+              final loggedOut = await ref
+                  .read(authStateProvider.notifier)
+                  .logout();
+              if (loggedOut && context.mounted) context.go('/login');
             },
             icon: const Icon(Icons.logout_outlined),
           ),
@@ -78,8 +80,9 @@ class _LostFoundScreenState extends ConsumerState<LostFoundScreen> {
       children: [
         Text(
           'Lost & Found',
-          style: Theme.of(context).textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.w800),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 6),
         const Text(
@@ -373,10 +376,9 @@ class _LostFoundReportDialogState extends State<_LostFoundReportDialog> {
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final user = ProviderScope.containerOf(context)
-        .read(authStateProvider)
-        .valueOrNull
-        ?.user;
+    final user = ProviderScope.containerOf(
+      context,
+    ).read(authStateProvider).valueOrNull?.user;
     if (user == null) return;
     Navigator.pop(
       context,

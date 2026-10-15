@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,12 +9,16 @@ import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_button.dart';
 import 'package:smart_student_companion/core/widgets/app_card.dart';
 import 'package:smart_student_companion/core/widgets/app_text_field.dart';
-import 'package:smart_student_companion/features/parent/data/parent_models.dart';
 import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 
 class ParentPhoneVerificationScreen extends ConsumerStatefulWidget {
-  const ParentPhoneVerificationScreen({super.key});
+  const ParentPhoneVerificationScreen({
+    super.key,
+    this.parentLoginOnly = false,
+  });
+
+  final bool parentLoginOnly;
 
   @override
   ConsumerState<ParentPhoneVerificationScreen> createState() =>
@@ -30,13 +35,16 @@ class _ParentPhoneVerificationScreenState
 
   // OTP Verification state on the same flow/page
   bool _otpSent = false;
-  final List<TextEditingController> _otpControllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _otpControllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   int _resendCountdown = 45;
   Timer? _timer;
   bool _isVerifying = false;
   String? _otpErrorMessage;
+  int _otpRequestGeneration = 0;
 
   @override
   void dispose() {
@@ -83,10 +91,9 @@ class _ParentPhoneVerificationScreenState
   Future<void> _handleGetOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final candidateStudent = ref.read(parentCandidateStudentProvider) ??
-        ref.read(authStateProvider).valueOrNull?.user;
+    final candidateStudent = _candidateStudent;
 
-    if (candidateStudent == null) {
+    if (!widget.parentLoginOnly && candidateStudent == null) {
       context.go('/login');
       return;
     }
@@ -101,13 +108,15 @@ class _ParentPhoneVerificationScreenState
     final authService = ref.read(parentAuthServiceProvider);
 
     try {
-      // 1. Check Firebase/Firestore to determine whether entered mobile number is registered
-      final isRegistered = await authService.verifyParentMobileAgainstFirestore(
-        rollNumber: candidateStudent.rollNumber,
-        inputPhone: inputPhone,
-        studentUid: candidateStudent.uid,
-        candidateParentPhone: candidateStudent.parentPhone,
-      );
+      // Student-initiated linking is only available for a phone already
+      // registered on the authenticated student's profile. Parent sign-in
+      // sends an OTP first; the signed-in token/profile are checked after it.
+      final isRegistered = widget.parentLoginOnly
+          ? true
+          : await authService.verifyParentMobileAgainstFirestore(
+              studentUid: candidateStudent!.uid,
+              inputPhone: inputPhone,
+            );
 
       if (!isRegistered) {
         if (mounted) {
@@ -122,11 +131,12 @@ class _ParentPhoneVerificationScreenState
 
       // If registered: save verified phone and send OTP via Firebase Phone Auth
       ref.read(parentVerifiedPhoneProvider.notifier).state = inputPhone;
+      final requestGeneration = ++_otpRequestGeneration;
 
       await authService.sendFirebasePhoneOtp(
         phoneNumber: inputPhone,
         onCodeSent: (verificationId, resendToken) {
-          if (!mounted) return;
+          if (!mounted || requestGeneration != _otpRequestGeneration) return;
           ref.read(parentVerificationIdProvider.notifier).state =
               verificationId;
           ref.read(parentResendTokenProvider.notifier).state = resendToken;
@@ -139,29 +149,35 @@ class _ParentPhoneVerificationScreenState
           _startCountdown();
         },
         onError: (error) {
-          if (!mounted) return;
-          final fallbackOtp = authService.generateOtp();
-          ref.read(parentGeneratedOtpProvider.notifier).state = fallbackOtp;
-          ref.read(parentVerificationIdProvider.notifier).state = null;
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppColors.primary,
-              behavior: SnackBarBehavior.floating,
-              content: Text(
-                'SMS Service Notice: $error\nDemo verification code: $fallbackOtp',
-              ),
-              duration: const Duration(seconds: 8),
-            ),
-          );
-
+          if (!mounted || requestGeneration != _otpRequestGeneration) return;
           setState(() {
             _isLoading = false;
-            _otpSent = true;
-            _errorMessage = null;
+            _otpSent = false;
+            _errorMessage = error;
             _isNotRegistered = false;
           });
-          _startCountdown();
+        },
+        onAutoVerified: (credential) {
+          if (requestGeneration != _otpRequestGeneration) return;
+          unawaited(
+            _completeParentSignIn(
+              authService: authService,
+              candidateStudent: candidateStudent,
+              verifiedPhone: inputPhone,
+              requestGeneration: requestGeneration,
+              automaticCredential: credential,
+            ),
+          );
+        },
+        onTimeout: (verificationId) {
+          if (!mounted || requestGeneration != _otpRequestGeneration) return;
+          ref.read(parentVerificationIdProvider.notifier).state =
+              verificationId;
+          setState(() {
+            _isLoading = false;
+            _otpErrorMessage =
+                'Automatic code retrieval timed out. Enter the SMS code or resend it.';
+          });
         },
       );
     } catch (e) {
@@ -182,7 +198,7 @@ class _ParentPhoneVerificationScreenState
     final authService = ref.read(parentAuthServiceProvider);
 
     if (verifiedPhone.isEmpty) {
-      setState(() => _otpSent = false);
+      _cancelOtp();
       return;
     }
 
@@ -191,12 +207,13 @@ class _ParentPhoneVerificationScreenState
     }
     _focusNodes[0].requestFocus();
     _startCountdown();
+    final requestGeneration = ++_otpRequestGeneration;
 
     await authService.sendFirebasePhoneOtp(
       phoneNumber: verifiedPhone,
       forceResendingToken: resendToken,
       onCodeSent: (newVerificationId, newResendToken) {
-        if (!mounted) return;
+        if (!mounted || requestGeneration != _otpRequestGeneration) return;
         ref.read(parentVerificationIdProvider.notifier).state =
             newVerificationId;
         ref.read(parentResendTokenProvider.notifier).state = newResendToken;
@@ -210,25 +227,42 @@ class _ParentPhoneVerificationScreenState
         );
       },
       onError: (err) {
-        if (!mounted) return;
-        final dynamicOtp = authService.generateOtp();
-        ref.read(parentGeneratedOtpProvider.notifier).state = dynamicOtp;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            content: Text('Notice: $err\nVerification code: $dynamicOtp'),
-            duration: const Duration(seconds: 6),
+        if (!mounted || requestGeneration != _otpRequestGeneration) return;
+        _timer?.cancel();
+        setState(() {
+          _resendCountdown = 0;
+          _otpErrorMessage = err;
+        });
+      },
+      onAutoVerified: (credential) {
+        if (requestGeneration != _otpRequestGeneration) return;
+        final candidateStudent = _candidateStudent;
+        if (!widget.parentLoginOnly && candidateStudent == null) return;
+        unawaited(
+          _completeParentSignIn(
+            authService: authService,
+            candidateStudent: candidateStudent,
+            verifiedPhone: verifiedPhone,
+            requestGeneration: requestGeneration,
+            automaticCredential: credential,
           ),
         );
+      },
+      onTimeout: (verificationId) {
+        if (!mounted || requestGeneration != _otpRequestGeneration) return;
+        ref.read(parentVerificationIdProvider.notifier).state = verificationId;
+        setState(() {
+          _otpErrorMessage =
+              'Automatic code retrieval timed out. Enter the SMS code or resend it.';
+        });
       },
     );
   }
 
   Future<void> _handleVerifyOtp() async {
-    final candidateStudent = ref.read(parentCandidateStudentProvider) ??
-        ref.read(authStateProvider).valueOrNull?.user;
-    if (candidateStudent == null) {
+    if (_isVerifying) return;
+    final candidateStudent = _candidateStudent;
+    if (!widget.parentLoginOnly && candidateStudent == null) {
       context.go('/login');
       return;
     }
@@ -245,67 +279,144 @@ class _ParentPhoneVerificationScreenState
     });
 
     final verificationId = ref.read(parentVerificationIdProvider);
-    final fallbackOtp = ref.read(parentGeneratedOtpProvider);
     final authService = ref.read(parentAuthServiceProvider);
+    final requestGeneration = _otpRequestGeneration;
 
-    final isValid = await authService.verifyOtpCredential(
-      otp: otp,
-      verificationId: verificationId,
-      fallbackOtp: fallbackOtp,
-    );
-
-    if (!isValid) {
-      if (mounted) {
+    final verifiedPhone = ref.read(parentVerifiedPhoneProvider);
+    try {
+      final parentUser = await authService.signInParentWithOtp(
+        otp: otp,
+        verificationId: verificationId ?? '',
+        studentUid: candidateStudent?.uid,
+        verifiedPhone: verifiedPhone,
+      );
+      if (!mounted || requestGeneration != _otpRequestGeneration) {
+        await authService.cancelPhoneSignIn();
+        return;
+      }
+      _finishParentSession(candidateStudent, parentUser);
+    } on FirebaseAuthException catch (error) {
+      if (mounted && requestGeneration == _otpRequestGeneration) {
         setState(() {
           _isVerifying = false;
-          _otpErrorMessage =
-              'Invalid verification code. Please check your SMS and try again.';
+          _otpErrorMessage = _phoneAuthErrorMessage(error);
         });
       }
-      return;
+    } catch (error) {
+      if (mounted && requestGeneration == _otpRequestGeneration) {
+        setState(() {
+          _isVerifying = false;
+          _otpErrorMessage = error.toString().replaceFirst('Bad state: ', '');
+        });
+      }
     }
+  }
 
-    // OTP Verified successfully!
-    final verifiedPhone = ref.read(parentVerifiedPhoneProvider);
-    final parentPhone = verifiedPhone.isNotEmpty
-        ? verifiedPhone
-        : candidateStudent.parentPhone;
+  Future<void> _completeParentSignIn({
+    required ParentAuthService authService,
+    required UserModel? candidateStudent,
+    required String verifiedPhone,
+    required int requestGeneration,
+    PhoneAuthCredential? automaticCredential,
+  }) async {
+    if (!mounted || requestGeneration != _otpRequestGeneration) return;
+    setState(() {
+      _isVerifying = true;
+      _otpErrorMessage = null;
+    });
+    try {
+      final parentUser = await authService.signInParentWithOtp(
+        otp: '',
+        verificationId: '',
+        studentUid: candidateStudent?.uid,
+        verifiedPhone: verifiedPhone,
+        automaticCredential: automaticCredential,
+      );
+      if (!mounted || requestGeneration != _otpRequestGeneration) {
+        await authService.cancelPhoneSignIn();
+        return;
+      }
+      _finishParentSession(candidateStudent, parentUser);
+    } on FirebaseAuthException catch (error) {
+      if (mounted && requestGeneration == _otpRequestGeneration) {
+        setState(() {
+          _isVerifying = false;
+          _otpErrorMessage = _phoneAuthErrorMessage(error);
+        });
+      }
+    } catch (error) {
+      if (mounted && requestGeneration == _otpRequestGeneration) {
+        setState(() {
+          _isVerifying = false;
+          _otpErrorMessage = error.toString().replaceFirst('Bad state: ', '');
+        });
+      }
+    }
+  }
 
-    final parentUser = UserModel(
-      uid: 'parent-${candidateStudent.uid}',
-      name: candidateStudent.parentName.isNotEmpty
-          ? candidateStudent.parentName
-          : 'Parent of ${candidateStudent.name}',
-      email: candidateStudent.email,
-      role: UserRole.parent,
-      department: candidateStudent.department,
-      semester: candidateStudent.semester,
-      createdAt: DateTime.now(),
-      rollNumber: candidateStudent.rollNumber,
-      parentPhone: parentPhone,
-      childStudentId: candidateStudent.rollNumber,
-      cgpa: candidateStudent.cgpa,
-      overallAttendance: candidateStudent.overallAttendance,
-    );
-
-    // Build child academic summary for Parent Dashboard
-    final summary = ChildAcademicSummary.generateForStudent(candidateStudent);
-    ref.read(parentActiveChildSummaryProvider.notifier).state = summary;
-
-    // Set authenticated parent user
+  void _finishParentSession(UserModel? candidateStudent, UserModel parentUser) {
+    // Do not manufacture academic records from the student's profile. The
+    // linked data provider will populate this when an authorized data source
+    // is configured.
+    ref.read(parentActiveChildSummaryProvider.notifier).state = null;
     ref.read(authStateProvider.notifier).setAuthenticatedUser(parentUser);
+    if (mounted) context.go('/parent');
+  }
 
-    if (mounted) {
-      context.go('/parent');
+  UserModel? get _candidateStudent {
+    final cached = ref.read(parentCandidateStudentProvider);
+    final authenticated = ref.read(authStateProvider).valueOrNull;
+    final user = cached ?? authenticated?.user;
+    if (authenticated?.isAuthenticated != true ||
+        user?.role != UserRole.student) {
+      return null;
     }
+    if (cached != null && cached.uid != authenticated?.user?.uid) return null;
+    return user;
+  }
+
+  String _phoneAuthErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-verification-code':
+        return 'The verification code is invalid. Check the SMS and try again.';
+      case 'session-expired':
+      case 'code-expired':
+        return 'The verification code expired. Request a new code.';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again.';
+      case 'too-many-requests':
+      case 'quota-exceeded':
+        return 'Too many verification attempts. Wait before requesting another code.';
+      case 'invalid-phone-number':
+        return 'The phone number is invalid. Enter a valid number and try again.';
+      default:
+        return error.message ?? 'Phone verification failed. Please try again.';
+    }
+  }
+
+  void _cancelOtp() {
+    _otpRequestGeneration++;
+    _timer?.cancel();
+    ref.read(parentVerificationIdProvider.notifier).state = null;
+    ref.read(parentResendTokenProvider.notifier).state = null;
+    ref.read(parentVerifiedPhoneProvider.notifier).state = '';
+    for (final controller in _otpControllers) {
+      controller.clear();
+    }
+    setState(() {
+      _otpSent = false;
+      _isLoading = false;
+      _isVerifying = false;
+      _otpErrorMessage = null;
+      _resendCountdown = 0;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final candidateStudent = ref.watch(parentCandidateStudentProvider) ??
-        ref.watch(authStateProvider).valueOrNull?.user;
+    final candidateStudent = _candidateStudent;
 
-    if (candidateStudent == null) {
+    if (!widget.parentLoginOnly && candidateStudent == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.go('/login');
       });
@@ -333,9 +444,14 @@ class _ParentPhoneVerificationScreenState
                       IconButton(
                         onPressed: () {
                           if (_otpSent) {
-                            setState(() => _otpSent = false);
+                            _cancelOtp();
                           } else {
-                            context.go('/who-are-you');
+                            _cancelOtp();
+                            context.go(
+                              widget.parentLoginOnly
+                                  ? '/login'
+                                  : '/who-are-you',
+                            );
                           }
                         },
                         icon: const Icon(Icons.arrow_back),
@@ -356,12 +472,18 @@ class _ParentPhoneVerificationScreenState
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Parent Verification',
+                    widget.parentLoginOnly
+                        ? 'Parent Sign In'
+                        : 'Parent Verification',
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _otpSent
+                    widget.parentLoginOnly
+                        ? (_otpSent
+                              ? 'Enter the verification code sent to your registered phone.'
+                              : 'Sign in with the phone number registered to your Parent account.')
+                        : _otpSent
                         ? "We've sent a verification code to your registered mobile number."
                         : 'Enter your registered mobile number',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -369,45 +491,46 @@ class _ParentPhoneVerificationScreenState
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Student Context Card
-                  AppCard(
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
-                          child: const Icon(
-                            Icons.school_rounded,
-                            color: AppColors.primary,
-                            size: 24,
+                  // Show student context only in the student-authorized flow.
+                  if (!widget.parentLoginOnly)
+                    AppCard(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child: const Icon(
+                              Icons.school_rounded,
+                              color: AppColors.primary,
+                              size: 24,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                candidateStudent.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  candidateStudent!.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'Roll No: ${candidateStudent.rollNumber} • ${candidateStudent.department}',
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
+                                Text(
+                                  'Roll No: ${candidateStudent!.rollNumber} • ${candidateStudent.department}',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                  if (!widget.parentLoginOnly) const SizedBox(height: 24),
 
                   // PHASE 1: MOBILE NUMBER ENTRY
                   if (!_otpSent) ...[
@@ -434,7 +557,9 @@ class _ParentPhoneVerificationScreenState
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your registered mobile number.';
                               }
-                              if (ParentAuthService.extractDigits(value).length <
+                              if (ParentAuthService.extractDigits(
+                                    value,
+                                  ).length <
                                   8) {
                                 return 'Enter a valid mobile number with at least 8 digits.';
                               }
@@ -514,9 +639,17 @@ class _ParentPhoneVerificationScreenState
                           const SizedBox(height: 16),
                           Center(
                             child: TextButton.icon(
-                              onPressed: () => context.go('/who-are-you'),
+                              onPressed: () => context.go(
+                                widget.parentLoginOnly
+                                    ? '/login'
+                                    : '/who-are-you',
+                              ),
                               icon: const Icon(Icons.arrow_back, size: 16),
-                              label: const Text('Back to Identity Selection'),
+                              label: Text(
+                                widget.parentLoginOnly
+                                    ? 'Back to Sign In'
+                                    : 'Back to Identity Selection',
+                              ),
                             ),
                           ),
                         ],
@@ -555,7 +688,7 @@ class _ParentPhoneVerificationScreenState
                           ),
                           const Spacer(),
                           TextButton(
-                            onPressed: () => setState(() => _otpSent = false),
+                            onPressed: _cancelOtp,
                             child: const Text('Change Number'),
                           ),
                         ],
@@ -687,7 +820,7 @@ class _ParentPhoneVerificationScreenState
                     const SizedBox(height: 8),
                     Center(
                       child: TextButton(
-                        onPressed: () => setState(() => _otpSent = false),
+                        onPressed: _cancelOtp,
                         child: const Text('Change mobile number'),
                       ),
                     ),

@@ -24,6 +24,7 @@ import 'package:smart_student_companion/features/auth/presentation/welcome_scree
 import 'package:smart_student_companion/features/parent/presentation/child_attendance.dart';
 import 'package:smart_student_companion/features/parent/presentation/child_performance.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_dashboard.dart';
+import 'package:smart_student_companion/features/parent/data/parent_demo_mode.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_phone_verification_screen.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_profile_screen.dart';
 import 'package:smart_student_companion/features/parent/presentation/parent_role_verification_screen.dart';
@@ -53,14 +54,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (location == '/' ||
           location == '/welcome' ||
           location == '/login' ||
+          location == '/parent-login' ||
           location == '/register/select-role' ||
           location.startsWith('/register/') ||
           location == '/account-created' ||
-          location == '/forgot-password' ||
-          location == '/who-are-you' ||
-          location == '/parent-verify-role' ||
-          location == '/parent-phone-verify' ||
-          location == '/parent-verify-otp') {
+          location == '/forgot-password') {
         return null;
       }
 
@@ -70,6 +68,32 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (user == null) {
         return '/login';
+      }
+
+      if (location == '/parent-demo') {
+        if (!parentDemoModeEnabled || user.role != UserRole.student) {
+          return switch (user.role) {
+            UserRole.student => '/student',
+            UserRole.faculty => '/faculty',
+            UserRole.parent => '/parent',
+            UserRole.admin => '/admin',
+          };
+        }
+        return null;
+      }
+
+      final isStudentVerificationRoute =
+          location == '/who-are-you' ||
+          location == '/parent-verify-role' ||
+          location == '/parent-phone-verify' ||
+          location == '/parent-verify-otp';
+      if (isStudentVerificationRoute && user.role != UserRole.student) {
+        return switch (user.role) {
+          UserRole.student => null,
+          UserRole.faculty => '/faculty',
+          UserRole.parent => '/parent',
+          UserRole.admin => '/admin',
+        };
       }
 
       if (location.startsWith('/student') && user.role != UserRole.student) {
@@ -98,6 +122,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WelcomeScreen(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/parent-login',
+        builder: (context, state) =>
+            const ParentPhoneVerificationScreen(parentLoginOnly: true),
+      ),
+      GoRoute(
+        path: '/who-are-you',
+        builder: (context, state) => const ParentRoleVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/parent-verify-role',
+        builder: (context, state) => const ParentRoleVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/parent-phone-verify',
+        builder: (context, state) => const ParentPhoneVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/parent-verify-otp',
+        builder: (context, state) => const ParentPhoneVerificationScreen(),
+      ),
       GoRoute(
         path: '/register',
         redirect: (context, state) => '/register/select-role',
@@ -185,6 +230,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/faculty/leave-requests',
         builder: (context, state) => const TeacherLeaveRequests(),
+      ),
+      GoRoute(
+        path: '/faculty/lost-found',
+        builder: (context, state) => const LostFoundScreen(),
+      ),
+      GoRoute(
+        path: '/parent-demo',
+        builder: (context, state) => const ParentDashboard(demoMode: true),
       ),
       GoRoute(
         path: '/parent',
@@ -281,6 +334,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 class AppRouter {
   static bool canAccessRoute(UserRole role, String route) {
+    if (route == '/parent-demo') {
+      return parentDemoModeEnabled && role == UserRole.student;
+    }
+    if (route == '/register/parent') return role == UserRole.student;
+    if (route == '/who-are-you' ||
+        route == '/parent-verify-role' ||
+        route == '/parent-phone-verify' ||
+        route == '/parent-verify-otp') {
+      return role == UserRole.student;
+    }
     if (route.startsWith('/admin')) {
       return role == UserRole.admin;
     }

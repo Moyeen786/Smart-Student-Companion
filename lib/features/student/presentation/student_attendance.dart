@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,8 +5,7 @@ class StudentAttendance extends StatefulWidget {
   const StudentAttendance({super.key});
 
   @override
-  State<StudentAttendance> createState() =>
-      _StudentAttendanceState();
+  State<StudentAttendance> createState() => _StudentAttendanceState();
 }
 
 class _StudentAttendanceState extends State<StudentAttendance> {
@@ -57,25 +55,19 @@ class _StudentAttendanceState extends State<StudentAttendance> {
   int get _totalClasses =>
       _attendance.fold(0, (sum, item) => sum + (item['total'] as int));
 
-  int get _attendedClasses => _attendance.fold(
-        0,
-        (sum, item) => sum + (item['attended'] as int),
-      );
+  int get _attendedClasses =>
+      _attendance.fold(0, (sum, item) => sum + (item['attended'] as int));
 
   double get _overallPercentage =>
       _totalClasses == 0 ? 0 : _attendedClasses / _totalClasses * 100;
 
   List<Map<String, dynamic>> get _filteredAttendance {
     if (_selectedFilter == 'Below 75%') {
-      return _attendance
-          .where((item) => _percentage(item) < 75)
-          .toList();
+      return _attendance.where((item) => _percentage(item) < 75).toList();
     }
 
     if (_selectedFilter == '75% and above') {
-      return _attendance
-          .where((item) => _percentage(item) >= 75)
-          .toList();
+      return _attendance.where((item) => _percentage(item) >= 75).toList();
     }
 
     return _attendance;
@@ -104,10 +96,7 @@ class _StudentAttendanceState extends State<StudentAttendance> {
         selectedIndex: 1,
         onDestinationSelected: _navigate,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.fact_check_outlined),
             selectedIcon: Icon(Icons.fact_check),
@@ -175,8 +164,7 @@ class _StudentAttendanceState extends State<StudentAttendance> {
                               value: percentage / 100,
                               strokeWidth: 8,
                               backgroundColor: Colors.white24,
-                              valueColor:
-                                  const AlwaysStoppedAnimation<Color>(
+                              valueColor: const AlwaysStoppedAnimation<Color>(
                                 Colors.white,
                               ),
                             ),
@@ -206,8 +194,9 @@ class _StudentAttendanceState extends State<StudentAttendance> {
                       value: percentage / 100,
                       minHeight: 8,
                       backgroundColor: Colors.white24,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -281,9 +270,7 @@ class _StudentAttendanceState extends State<StudentAttendance> {
             if (_filteredAttendance.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(28),
-                child: Center(
-                  child: Text('No subjects match this filter.'),
-                ),
+                child: Center(child: Text('No subjects match this filter.')),
               ),
             ..._filteredAttendance.map(
               (item) => _SubjectAttendanceCard(
@@ -338,7 +325,11 @@ class _StudentAttendanceState extends State<StudentAttendance> {
 
     if (index == 1) return;
 
-    context.go(routes[index]);
+    if (index == routes.length - 1) {
+      context.push(routes[index]);
+    } else {
+      context.go(routes[index]);
+    }
   }
 }
 
@@ -380,10 +371,7 @@ class _InfoCard extends StatelessWidget {
                 ),
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.blueGrey,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
                 ),
               ],
             ),
@@ -415,8 +403,7 @@ class _SubjectAttendanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progressColor =
-        percentage < 75 ? Colors.deepOrange : Colors.green;
+    final progressColor = percentage < 75 ? Colors.deepOrange : Colors.green;
 
     return Card(
       color: Colors.white,
@@ -489,10 +476,7 @@ class _SubjectAttendanceCard extends StatelessWidget {
               children: [
                 Text(
                   '$attended / $total classes attended',
-                  style: const TextStyle(
-                    color: Colors.blueGrey,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
                 ),
                 const Spacer(),
                 if (percentage < 75)

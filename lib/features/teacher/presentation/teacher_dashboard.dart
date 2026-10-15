@@ -6,6 +6,7 @@ import 'package:smart_student_companion/core/theme/app_colors.dart';
 import 'package:smart_student_companion/core/widgets/app_card.dart';
 import 'package:smart_student_companion/core/widgets/section_header.dart';
 import 'package:smart_student_companion/core/widgets/stat_card.dart';
+import 'package:smart_student_companion/core/widgets/responsive_grid.dart';
 
 class TeacherDashboard extends ConsumerWidget {
   const TeacherDashboard({super.key});
@@ -19,8 +20,10 @@ class TeacherDashboard extends ConsumerWidget {
           IconButton(
             tooltip: 'Sign out',
             onPressed: () async {
-              await ref.read(authStateProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
+              final loggedOut = await ref
+                  .read(authStateProvider.notifier)
+                  .logout();
+              if (loggedOut && context.mounted) context.go('/login');
             },
             icon: const Icon(Icons.logout_outlined),
           ),
@@ -58,10 +61,6 @@ class TeacherDashboard extends ConsumerWidget {
             icon: Icon(Icons.inbox_outlined),
             label: 'Requests',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
         ],
       ),
       body: SafeArea(
@@ -94,14 +93,8 @@ class TeacherDashboard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 20),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
-              children: const [
+            const ResponsiveGrid(
+              children: [
                 StatCard(
                   label: "Today's Classes",
                   value: '06',

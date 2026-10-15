@@ -224,6 +224,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: const Text('REGISTER NOW'),
                   ),
                 ),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => context.go('/parent-login'),
+                    icon: const Icon(Icons.family_restroom_outlined),
+                    label: const Text('PARENT SIGN IN WITH PHONE'),
+                  ),
+                ),
               ],
             ),
           ),

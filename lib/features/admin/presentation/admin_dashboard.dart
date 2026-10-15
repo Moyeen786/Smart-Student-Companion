@@ -44,8 +44,20 @@ class AdminDashboard extends ConsumerWidget {
   ) => LayoutBuilder(
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 980;
+      final columns = constraints.maxWidth < 600
+          ? 1
+          : constraints.maxWidth < 980
+          ? 2
+          : 4;
+      final textScale = MediaQuery.textScalerOf(context).scale(1);
+      final statCardHeight = (columns == 1 ? 132.0 : 146.0) * textScale;
       return ListView(
-        padding: const EdgeInsets.fromLTRB(28, 26, 28, 36),
+        padding: EdgeInsets.fromLTRB(
+          constraints.maxWidth < 600 ? 16 : 28,
+          26,
+          constraints.maxWidth < 600 ? 16 : 28,
+          36,
+        ),
         children: [
           const Text(
             'Good morning, Administrator',
@@ -61,14 +73,17 @@ class AdminDashboard extends ConsumerWidget {
             style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 24),
-          GridView.count(
-            crossAxisCount: wide ? 4 : 2,
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
-            childAspectRatio: wide ? 1.55 : 1.15,
+          GridView.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+              mainAxisExtent: statCardHeight,
+            ),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            children: [
+            itemCount: 4,
+            itemBuilder: (context, index) => [
               AdminStatCard(
                 label: 'Total students',
                 value: '${overview.students}',
@@ -97,7 +112,7 @@ class AdminDashboard extends ConsumerWidget {
                 icon: Icons.people_alt_outlined,
                 color: const Color(0xFFB26A00),
               ),
-            ],
+            ][index],
           ),
           const SizedBox(height: 28),
           if (wide)
@@ -130,7 +145,13 @@ class AdminDashboard extends ConsumerWidget {
                   )
                 : Column(
                     children: departments
-                        .map((department) => _departmentRow(department, wide))
+                        .map(
+                          (department) => _departmentRow(
+                            department,
+                            wide,
+                            constraints.maxWidth < 600,
+                          ),
+                        )
                         .toList(),
                   ),
           ),
@@ -221,9 +242,11 @@ class AdminDashboard extends ConsumerWidget {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 42,
+                        width: 72,
                         child: Text(
                           d.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -289,50 +312,69 @@ class AdminDashboard extends ConsumerWidget {
       ],
     ),
   );
-  Widget _departmentRow(DepartmentSummary d, bool wide) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 13),
-    decoration: const BoxDecoration(
-      border: Border(top: BorderSide(color: AppColors.border)),
-    ),
-    child: wide
-        ? Row(
-            children: [
-              Expanded(
-                child: Text(
-                  d.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
+  Widget _departmentRow(DepartmentSummary d, bool wide, bool compact) =>
+      Container(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: wide
+            ? Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      d.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  SizedBox(width: 90, child: Text('${d.students}')),
+                  SizedBox(width: 80, child: Text('${d.faculty}')),
+                  SizedBox(width: 80, child: Text('${d.attendance}%')),
+                  const SizedBox(
+                    width: 55,
+                    child: Text(
+                      'Active',
+                      style: TextStyle(color: AppColors.success, fontSize: 12),
+                    ),
+                  ),
+                ],
+              )
+            : compact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    d.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '${d.students} students  |  ${d.attendance}%',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      d.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Text(
+                    '${d.students} students  |  ${d.attendance}%',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 90, child: Text('${d.students}')),
-              SizedBox(width: 80, child: Text('${d.faculty}')),
-              SizedBox(width: 80, child: Text('${d.attendance}%')),
-              const SizedBox(
-                width: 55,
-                child: Text(
-                  'Active',
-                  style: TextStyle(color: AppColors.success, fontSize: 12),
-                ),
-              ),
-            ],
-          )
-        : Row(
-            children: [
-              Expanded(
-                child: Text(
-                  d.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              Text(
-                '${d.students} students  |  ${d.attendance}%',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-  );
+      );
   Widget _action(
     BuildContext context,
     String label,

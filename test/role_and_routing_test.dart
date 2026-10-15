@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_student_companion/app/app_providers.dart';
 import 'package:smart_student_companion/features/parent/data/parent_models.dart';
 import 'package:smart_student_companion/features/parent/data/parent_providers.dart';
+import 'package:smart_student_companion/features/parent/data/parent_demo_mode.dart';
 import 'package:smart_student_companion/models/user_model.dart';
 import 'package:smart_student_companion/app/router.dart';
 import 'package:smart_student_companion/features/auth/data/repositories/auth_repository.dart';
@@ -19,7 +21,10 @@ void main() {
       expect(UserRoleExtension.fromFirestoreValue('student'), UserRole.student);
       expect(UserRoleExtension.fromFirestoreValue('teacher'), UserRole.faculty);
       expect(UserRoleExtension.fromFirestoreValue('admin'), UserRole.admin);
-      expect(UserRoleExtension.fromFirestoreValue('unknown'), UserRole.student);
+      expect(
+        () => UserModel.fromMap({'role': 'unknown'}),
+        throwsFormatException,
+      );
     });
   });
 
@@ -53,14 +58,6 @@ void main() {
 
   group('Parent authentication and data models', () {
     test('ParentAuthService validates and masks phone numbers', () {
-      final service = ParentAuthService();
-      final otp = service.generateOtp();
-      expect(otp.length, 6);
-
-      expect(service.verifyOtp(inputOtp: otp, expectedOtp: otp), isTrue);
-      expect(service.verifyOtp(inputOtp: '123456', expectedOtp: otp), isTrue);
-      expect(service.verifyOtp(inputOtp: '000000', expectedOtp: otp), isFalse);
-
       final masked = ParentAuthService.maskPhoneNumber('+91 98765 43210');
       expect(masked.contains('••••'), isTrue);
 
@@ -78,30 +75,30 @@ void main() {
       );
     });
 
-    test('registerParentDetails stores details and verifies mobile number', () async {
+    test('OTP cannot be accepted without a Firebase verification session', () {
       final service = ParentAuthService();
-      
-      // Initially unregistered number
-      final notReg = await service.verifyParentMobileAgainstFirestore(
-        rollNumber: 'CS2023999',
-        inputPhone: '9876500000',
+      expect(
+        service.signInParentWithOtp(
+          otp: '123456',
+          verificationId: '',
+          studentUid: 'student-1',
+          verifiedPhone: '+919876543210',
+        ),
+        throwsStateError,
       );
-      expect(notReg, isFalse);
+    });
 
-      // Register parent details
-      await service.registerParentDetails(
-        studentName: 'Aarav Patel',
-        rollNumber: 'CS2023999',
-        department: 'Computer Science',
-        parentPhone: '+91 98765 00000',
+    test('Parent registration fails closed without trusted provisioning', () {
+      final service = ParentAuthService();
+      expect(
+        service.registerParentDetails(
+          studentName: 'Aarav Patel',
+          rollNumber: 'CS2023999',
+          department: 'Computer Science',
+          parentPhone: '+91 98765 00000',
+        ),
+        throwsStateError,
       );
-
-      // Now it should be verified
-      final isReg = await service.verifyParentMobileAgainstFirestore(
-        rollNumber: 'CS2023999',
-        inputPhone: '9876500000',
-      );
-      expect(isReg, isTrue);
     });
 
     test('ChildAcademicSummary generates complete insights and attendance', () {
@@ -133,15 +130,89 @@ void main() {
     test('student role cannot access faculty route', () {
       expect(AppRouter.canAccessRoute(UserRole.student, '/faculty'), isFalse);
       expect(AppRouter.canAccessRoute(UserRole.student, '/student'), isTrue);
+      expect(
+        AppRouter.canAccessRoute(UserRole.faculty, '/faculty/lost-found'),
+        isTrue,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.student, '/faculty/lost-found'),
+        isFalse,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.student, '/who-are-you'),
+        isTrue,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.faculty, '/who-are-you'),
+        isFalse,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.admin, '/parent-phone-verify'),
+        isFalse,
+      );
       expect(AppRouter.canAccessRoute(UserRole.faculty, '/student'), isFalse);
       expect(AppRouter.canAccessRoute(UserRole.parent, '/parent'), isTrue);
-      expect(AppRouter.canAccessRoute(UserRole.parent, '/parent/attendance'), isTrue);
-      expect(AppRouter.canAccessRoute(UserRole.parent, '/parent/performance'), isTrue);
-      expect(AppRouter.canAccessRoute(UserRole.parent, '/parent/profile'), isTrue);
+      expect(
+        AppRouter.canAccessRoute(UserRole.parent, '/parent/attendance'),
+        isTrue,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.parent, '/parent/performance'),
+        isTrue,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.parent, '/parent/profile'),
+        isTrue,
+      );
+      expect(AppRouter.canAccessRoute(UserRole.parent, '/admin'), isFalse);
+      expect(AppRouter.canAccessRoute(UserRole.parent, '/faculty'), isFalse);
+      expect(
+        AppRouter.canAccessRoute(UserRole.parent, '/faculty/lost-found'),
+        isFalse,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.parent, '/student/lost-found'),
+        isFalse,
+      );
       expect(AppRouter.canAccessRoute(UserRole.student, '/parent'), isFalse);
       expect(AppRouter.canAccessRoute(UserRole.admin, '/admin'), isTrue);
     });
+
+    test('demo path never grants access to production Parent routes', () {
+      expect(AppRouter.canAccessRoute(UserRole.student, '/parent'), isFalse);
+      expect(
+        AppRouter.canAccessRoute(UserRole.student, '/parent/attendance'),
+        isFalse,
+      );
+      expect(
+        AppRouter.canAccessRoute(UserRole.faculty, '/parent-demo'),
+        isFalse,
+      );
+    });
   });
+
+  test('demo sample provider is unavailable when demo mode is off', () {
+    final container = ProviderContainer(
+      overrides: [parentDemoModeProvider.overrideWithValue(false)],
+    );
+    addTearDown(container.dispose);
+    expect(() => container.read(parentDemoSummaryProvider), throwsStateError);
+  });
+
+  test(
+    'demo sample data is fictional and cannot be treated as a real student',
+    () {
+      final container = ProviderContainer(
+        overrides: [parentDemoModeProvider.overrideWithValue(true)],
+      );
+      addTearDown(container.dispose);
+      final summary = container.read(parentDemoSummaryProvider);
+      expect(summary.student.uid, 'demo-student-only');
+      expect(summary.student.email, endsWith('.invalid'));
+      expect(summary.student.role, UserRole.student);
+      expect(AppRouter.canAccessRoute(UserRole.student, '/parent'), isFalse);
+    },
+  );
 
   test('login is not overwritten by the initial auth lookup', () async {
     final repository = _DelayedAuthRepository();
@@ -156,9 +227,26 @@ void main() {
     expect(authState.user?.role, UserRole.student);
     controller.dispose();
   });
+
+  test('failed logout keeps the authenticated session state', () async {
+    final repository = _DelayedAuthRepository(failLogout: true);
+    final controller = AuthController(repository);
+
+    final login = controller.login('student@example.com', 'password');
+    repository.completeInitialLookup();
+    await login;
+
+    expect(await controller.logout(), isFalse);
+    expect(controller.state.value?.isAuthenticated, isTrue);
+    expect(controller.state.value?.user?.role, UserRole.student);
+    controller.dispose();
+  });
 }
 
 class _DelayedAuthRepository implements AuthRepository {
+  _DelayedAuthRepository({this.failLogout = false});
+
+  final bool failLogout;
   final _initialLookup = Completer<UserModel?>();
 
   @override
@@ -188,7 +276,9 @@ class _DelayedAuthRepository implements AuthRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<void> logout() async {}
+  Future<void> logout() async {
+    if (failLogout) throw StateError('Sign out failed.');
+  }
 
   @override
   Future<void> passwordReset(String email) async {}

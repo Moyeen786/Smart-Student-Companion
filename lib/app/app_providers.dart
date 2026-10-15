@@ -34,7 +34,12 @@ final authStateProvider =
 class AuthController extends StateNotifier<AsyncValue<AuthState>> {
   AuthController(this._repository) : super(const AsyncLoading()) {
     _initialization = _init();
-    _authSubscription = _repository.authStateChanges.listen(_onAuthChanged);
+    _authSubscription = _repository.authStateChanges.listen(
+      _onAuthChanged,
+      onError: (Object error, StackTrace stackTrace) {
+        state = AsyncError(error, stackTrace);
+      },
+    );
   }
 
   final AuthRepository _repository;
@@ -95,13 +100,17 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
     await _repository.passwordReset(email);
   }
 
-  Future<void> logout() async {
-    state = const AsyncLoading();
+  Future<bool> logout() async {
+    final previousState = state.valueOrNull;
     try {
       await _repository.logout();
       state = const AsyncData(AuthState(isAuthenticated: false));
+      return true;
     } catch (error, stackTrace) {
-      state = AsyncError(error, stackTrace);
+      state = previousState == null
+          ? AsyncError(error, stackTrace)
+          : AsyncData(previousState);
+      return false;
     }
   }
 

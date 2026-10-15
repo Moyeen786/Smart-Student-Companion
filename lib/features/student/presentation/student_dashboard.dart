@@ -1,32 +1,31 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:smart_student_companion/app/app_providers.dart';
+import 'package:smart_student_companion/core/theme/app_colors.dart';
+import 'package:smart_student_companion/core/widgets/responsive_grid.dart';
 
 class StudentDashboard extends ConsumerWidget {
   const StudentDashboard({super.key});
 
-  static const Color primaryColor = Color(0xFF3456D1);
-  static const Color backgroundColor = Color(0xFFF5F7FB);
-  static const Color textColor = Color(0xFF202A44);
-  static const Color secondaryTextColor = Color(0xFF64748B);
+  static const Color primaryColor = AppColors.primary;
+  static const Color backgroundColor = AppColors.background;
+  static const Color textColor = AppColors.textPrimary;
+  static const Color secondaryTextColor = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
     final user = authState.valueOrNull?.user;
 
-    final String studentName =
-        (user?.name ?? '').trim().isEmpty
-            ? 'Student'
-            : user!.name.trim();
+    final String studentName = (user?.name ?? '').trim().isEmpty
+        ? 'Student'
+        : user!.name.trim();
 
-    final String rollNumber =
-        (user?.rollNumber ?? '').trim().isEmpty
-            ? 'Student Account'
-            : user!.rollNumber.trim();
+    final String rollNumber = (user?.rollNumber ?? '').trim().isEmpty
+        ? 'Student Account'
+        : user!.rollNumber.trim();
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -35,15 +34,12 @@ class StudentDashboard extends ConsumerWidget {
         surfaceTintColor: Colors.transparent,
         title: const Text(
           'Student Companion',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             tooltip: 'Profile',
-            onPressed: () => context.go('/student/profile'),
+            onPressed: () => context.push('/student/profile'),
             icon: const Icon(
               Icons.account_circle_outlined,
               color: primaryColor,
@@ -52,10 +48,7 @@ class StudentDashboard extends ConsumerWidget {
           IconButton(
             tooltip: 'Logout',
             onPressed: () => _showLogoutDialog(context, ref),
-            icon: const Icon(
-              Icons.logout_outlined,
-              color: primaryColor,
-            ),
+            icon: const Icon(Icons.logout_outlined, color: primaryColor),
           ),
           const SizedBox(width: 8),
         ],
@@ -74,7 +67,11 @@ class StudentDashboard extends ConsumerWidget {
             '/student/profile',
           ];
 
-          context.go(routes[index]);
+          if (index == routes.length - 1) {
+            context.push(routes[index]);
+          } else {
+            context.go(routes[index]);
+          }
         },
         destinations: const [
           NavigationDestination(
@@ -116,15 +113,10 @@ class StudentDashboard extends ConsumerWidget {
             const SizedBox(height: 14),
 
             // Data will be connected to shared providers later.
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
+            ResponsiveGrid(
               children: [
                 _statCard(
+                  context: context,
                   title: 'Attendance',
                   value: '--',
                   subtitle: 'Attendance records',
@@ -133,6 +125,7 @@ class StudentDashboard extends ConsumerWidget {
                   route: '/student/attendance',
                 ),
                 _statCard(
+                  context: context,
                   title: 'Assignments',
                   value: '--',
                   subtitle: 'View your work',
@@ -141,6 +134,7 @@ class StudentDashboard extends ConsumerWidget {
                   route: '/student/assignments',
                 ),
                 _statCard(
+                  context: context,
                   title: 'Classes Today',
                   value: '--',
                   subtitle: 'Your class schedule',
@@ -149,6 +143,7 @@ class StudentDashboard extends ConsumerWidget {
                   route: '/student/timetable',
                 ),
                 _statCard(
+                  context: context,
                   title: 'Study Notes',
                   value: '--',
                   subtitle: 'Your saved notes',
@@ -170,6 +165,7 @@ class StudentDashboard extends ConsumerWidget {
             const SizedBox(height: 14),
 
             _quickAccessCard(
+              context: context,
               title: 'Assignments',
               subtitle: 'View and submit assignments',
               icon: Icons.assignment_outlined,
@@ -177,6 +173,7 @@ class StudentDashboard extends ConsumerWidget {
               route: '/student/assignments',
             ),
             _quickAccessCard(
+              context: context,
               title: 'Attendance',
               subtitle: 'Check your attendance',
               icon: Icons.fact_check_outlined,
@@ -184,6 +181,7 @@ class StudentDashboard extends ConsumerWidget {
               route: '/student/attendance',
             ),
             _quickAccessCard(
+              context: context,
               title: 'Timetable',
               subtitle: 'View your weekly schedule',
               icon: Icons.calendar_month_outlined,
@@ -191,6 +189,7 @@ class StudentDashboard extends ConsumerWidget {
               route: '/student/timetable',
             ),
             _quickAccessCard(
+              context: context,
               title: 'Study Notes',
               subtitle: 'Organize your study notes',
               icon: Icons.note_alt_outlined,
@@ -264,8 +263,7 @@ class StudentDashboard extends ConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          context.go('/student/assignments'),
+                      onPressed: () => context.go('/student/assignments'),
                       style: FilledButton.styleFrom(
                         backgroundColor: primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 13),
@@ -291,7 +289,7 @@ class StudentDashboard extends ConsumerWidget {
                     icon: Icons.person_outline,
                     title: 'My Profile',
                     subtitle: 'View your student details',
-                    onTap: () => context.go('/student/profile'),
+                    onTap: () => context.push('/student/profile'),
                   ),
                   const Divider(height: 1, indent: 70),
                   _serviceTile(
@@ -335,10 +333,7 @@ class StudentDashboard extends ConsumerWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF3456D1),
-            Color(0xFF647FEA),
-          ],
+          colors: [AppColors.primary, Color(0xFF4F7FF5)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -352,10 +347,7 @@ class StudentDashboard extends ConsumerWidget {
               children: [
                 const Text(
                   'Welcome back,',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -371,18 +363,12 @@ class StudentDashboard extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   rollNumber,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 const SizedBox(height: 14),
                 const Text(
                   'Stay organized. Keep learning.',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ],
             ),
@@ -417,6 +403,7 @@ class StudentDashboard extends ConsumerWidget {
   }
 
   Widget _statCard({
+    required BuildContext context,
     required String title,
     required String value,
     required String subtitle,
@@ -429,7 +416,7 @@ class StudentDashboard extends ConsumerWidget {
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () => _openRoute(route),
+        onTap: () => context.go(route),
         child: Container(
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
@@ -470,10 +457,7 @@ class StudentDashboard extends ConsumerWidget {
                 subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: secondaryTextColor,
-                ),
+                style: const TextStyle(fontSize: 11, color: secondaryTextColor),
               ),
             ],
           ),
@@ -483,6 +467,7 @@ class StudentDashboard extends ConsumerWidget {
   }
 
   Widget _quickAccessCard({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required IconData icon,
@@ -493,10 +478,7 @@ class StudentDashboard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: _cardDecoration(),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           width: 46,
           height: 46,
@@ -518,17 +500,11 @@ class StudentDashboard extends ConsumerWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              color: secondaryTextColor,
-            ),
+            style: const TextStyle(fontSize: 12, color: secondaryTextColor),
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: secondaryTextColor,
-        ),
-        onTap: () => _openRoute(route),
+        trailing: const Icon(Icons.chevron_right, color: secondaryTextColor),
+        onTap: () => context.go(route),
       ),
     );
   }
@@ -540,32 +516,20 @@ class StudentDashboard extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 5,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       leading: CircleAvatar(
         backgroundColor: const Color(0xFFEAF0FF),
         child: Icon(icon, color: primaryColor),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w600, color: textColor),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          fontSize: 12,
-          color: secondaryTextColor,
-        ),
+        style: const TextStyle(fontSize: 12, color: secondaryTextColor),
       ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: secondaryTextColor,
-      ),
+      trailing: const Icon(Icons.chevron_right, color: secondaryTextColor),
       onTap: onTap,
     );
   }
@@ -578,36 +542,80 @@ class StudentDashboard extends ConsumerWidget {
     );
   }
 
-  void _openRoute(String route) {
-    // The context is obtained through the card callbacks in build().
-    // Navigation is handled by the callback-specific helper below.
-  }
-
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Logout'),
-          content: const Text(
-            'Are you sure you want to log out?',
-          ),
+          content: const Text('Are you sure you want to log out?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(dialogContext);
-                ref.read(authStateProvider.notifier).logout();
-                context.go('/login');
+                final loggedOut = await ref
+                    .read(authStateProvider.notifier)
+                    .logout();
+                if (loggedOut && context.mounted) context.go('/login');
               },
               child: const Text('Logout'),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE6EAF2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: StudentDashboard.primaryColor, size: 23),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: StudentDashboard.textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
